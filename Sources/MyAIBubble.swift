@@ -122,13 +122,17 @@ final class BubbleView: NSView {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         let scale: CGFloat = icon == nil ? (hovered ? 1.025 : 1) : (0.35 + 0.65 * reveal) * (hovered ? 1.06 : 1)
+        // Draw in unscaled window coordinates so hover cannot displace the shadow.
+        let diameter = (bounds.width-24)*scale
+        let shadowBounds = NSRect(x:bounds.midX-diameter/2, y:bounds.midY-diameter/2, width:diameter, height:diameter)
+        drawSoftShadow(under:NSBezierPath(ovalIn:shadowBounds), blur:icon == nil ? 11 : 5,
+                       offset:icon == nil ? -2 : -1.5, opacity:icon == nil ? 0.075 : 0.10)
         let transform = NSAffineTransform()
         transform.translateX(by: bounds.midX, yBy: bounds.midY)
         transform.scale(by: scale)
         transform.translateX(by: -bounds.midX, yBy: -bounds.midY); transform.concat()
         if let icon = resolvedIcon {
             let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 12, dy: 12))
-            drawSoftShadow(under: circle, blur: 5, offset: -1.5)
             NSGraphicsContext.saveGraphicsState()
             circle.addClip()
             iconBackground.setFill(); circle.fill()
@@ -198,7 +202,6 @@ final class BubbleView: NSView {
             glass = glass.applyingFilter("CIHueAdjust", parameters: [kCIInputAngleKey: 0.09*sin(t*0.19)])
         }
         let destination = bounds.insetBy(dx: 12, dy: 12)
-        drawSoftShadow(under: NSBezierPath(ovalIn: destination), blur: 10, offset: -4, opacity: 0.22)
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         NSBezierPath(ovalIn: destination).addClip()
