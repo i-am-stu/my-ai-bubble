@@ -5,10 +5,10 @@ Requires macOS 13 Ventura or later. Includes Apple silicon and Intel versions.
 1. Drag My AI Bubble.app to Applications.
 2. Open it from Applications or Spotlight.
 3. Install the native Mac AI apps you want to use, if you have not already. My AI Bubble does not include them.
-4. Right-click the central bubble (two-finger click on a trackpad, or Control-click), choose Add an app…, select an installed app from Applications, and click Open.
+4. Click the + bubble, select an installed app from Applications, and click Open.
 5. Click its new bubble to open the app. Repeat for your other apps.
 
-If you only see the centre bubble, that is normal: add your installed apps using the steps above. You can also use the ◎ menu-bar icon to find Add an app….
+If you only see the centre bubble and + bubble, that is normal: add your installed apps using the steps above. You can also use the ◎ menu-bar icon to find Add an AI app….
 
 FIRST OPEN
 This early release is locally signed, but not Developer ID signed or notarised by Apple. macOS may block the first launch.

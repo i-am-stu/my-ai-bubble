@@ -9,6 +9,7 @@ final class BubblePanel: NSPanel {
 final class BubbleView: NSView {
     let label: String
     let icon: NSImage?
+    var isAddButton = false
     static let coreArtwork: NSImage? = {
         guard let path = Bundle.main.path(forResource: "BubbleArtwork", ofType: "png") else { return nil }
         return NSImage(contentsOfFile: path)
@@ -87,7 +88,16 @@ final class BubbleView: NSView {
         transform.translateX(by: bounds.midX, yBy: bounds.midY)
         transform.scale(by: scale)
         transform.translateX(by: -bounds.midX, yBy: -bounds.midY); transform.concat()
-        if let icon = resolvedIcon {
+        if isAddButton {
+            let circle = NSBezierPath(ovalIn: bounds.insetBy(dx:12,dy:12))
+            drawSoftShadow(under:circle,blur:5,offset:-1.5)
+            NSColor(calibratedWhite:0.97,alpha:1).setFill();circle.fill()
+            let plus = NSBezierPath()
+            plus.move(to:NSPoint(x:bounds.midX-7,y:bounds.midY));plus.line(to:NSPoint(x:bounds.midX+7,y:bounds.midY))
+            plus.move(to:NSPoint(x:bounds.midX,y:bounds.midY-7));plus.line(to:NSPoint(x:bounds.midX,y:bounds.midY+7))
+            NSColor(calibratedRed:0.26,green:0.32,blue:0.44,alpha:1).setStroke()
+            plus.lineWidth=2.2;plus.lineCapStyle = .round;plus.stroke()
+        } else if let icon = resolvedIcon {
             let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 12, dy: 12))
             drawSoftShadow(under: circle, blur: 5, offset: -1.5)
             NSGraphicsContext.saveGraphicsState()
@@ -198,6 +208,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var anchor = NSPoint(x: 160, y: 350)
     var expanded = true
     var iconPanels: [BubblePanel] = []
+    var addPanel: BubblePanel?
+    var orbitRadius: CGFloat { max(82, CGFloat(apps.count+1)*8.5) }
+    func appAngle(_ index: Int) -> CGFloat { -.pi/2 + CGFloat(index+1)*2 * .pi/CGFloat(apps.count+1) }
     var iconProgress: [CGFloat] = []
     var animation: Timer?
     var animationStarts: [CGFloat] = []
@@ -225,7 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func clamp() {
         let screen = NSScreen.screens.first { $0.visibleFrame.contains(anchor) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
-        let margin: CGFloat = expanded && !apps.isEmpty ? 115 : 52
+        let margin: CGFloat = orbitRadius + 35
         anchor.x = max(frame.minX+margin, min(anchor.x, frame.maxX-margin))
         anchor.y = max(frame.minY+margin, min(anchor.y, frame.maxY-margin))
     }
@@ -260,8 +273,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panels.append(panel(view: centre, centre: anchor))
         do {
             for (index,path) in apps.enumerated() {
-                let angle = CGFloat.pi/2 - CGFloat(index)*2*CGFloat.pi/CGFloat(apps.count)
-                let point = NSPoint(x: anchor.x+82*cos(angle), y: anchor.y+82*sin(angle))
+                let angle = appAngle(index)
+                let point = NSPoint(x: anchor.x+orbitRadius*cos(angle), y: anchor.y+orbitRadius*sin(angle))
                 let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
                 let view = BubbleView(label: name, icon: NSWorkspace.shared.icon(forFile: path), size: 54)
                 view.action = { [weak self] in self?.launch(path) }
@@ -270,16 +283,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panels.append(satellite); iconPanels.append(satellite)
             }
         }
+        let addView = BubbleView(label: "Add an AI app", icon: NSImage(size: NSSize(width:32,height:32)), size:54)
+        addView.isAddButton = true
+        addView.action = { [weak self] in self?.addApp() }
+        let add = panel(view:addView,centre:NSPoint(x:anchor.x,y:anchor.y-orbitRadius))
+        addPanel = add;panels.append(add)
         layoutIcons()
         panels.first?.orderFrontRegardless()
         status?.menu = makeMenu()
     }
     func layoutIcons() {
         panels.first?.setFrameOrigin(NSPoint(x: anchor.x-48, y: anchor.y-48))
+        if let add = addPanel {
+            add.setFrameOrigin(NSPoint(x:anchor.x-add.frame.width/2,y:anchor.y-orbitRadius-add.frame.height/2))
+        }
         for (index, panel) in iconPanels.enumerated() {
             let progress = iconProgress[index]
-            let angle = CGFloat.pi/2 - CGFloat(index)*2*CGFloat.pi/CGFloat(max(1, apps.count))
-            let distance: CGFloat = reducedMotion ? 82 : 82 * progress
+            let angle = appAngle(index)
+            let distance: CGFloat = reducedMotion ? orbitRadius : orbitRadius * progress
             panel.setFrameOrigin(NSPoint(x: anchor.x+distance*cos(angle)-panel.frame.width/2, y: anchor.y+distance*sin(angle)-panel.frame.height/2))
             panel.alphaValue = progress
             panel.ignoresMouseEvents = progress < 0.98
@@ -318,11 +339,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func makeMenu() -> NSMenu {
         let menu = NSMenu()
-        _ = item(expanded ? "Fold to one bubble" : "Show app bubbles", #selector(toggle), in: menu)
+        _ = item(expanded ? "Hide app bubbles" : "Show app bubbles", #selector(toggle), in: menu)
         _ = item("Bring bubble into view", #selector(resetPosition), in: menu)
         menu.addItem(.separator())
-        let add = item("Add an app…", #selector(addApp), in: menu); add.isEnabled = apps.count < 10
-        let remove = NSMenuItem(title: "Remove an app", action: nil, keyEquivalent: "")
+        let add = item("Add an AI app…", #selector(addApp), in: menu); add.isEnabled = apps.count < 10
+        let remove = NSMenuItem(title: "Remove an AI app", action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         for (index,path) in apps.enumerated() { let entry = item(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent, #selector(removeApp(_:)), in: submenu); entry.tag = index }
         remove.submenu = submenu; menu.addItem(remove)
@@ -346,7 +367,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func screenChanged() { clamp(); rebuild(); save() }
     @objc func resetPosition() { if let frame = NSScreen.main?.visibleFrame { anchor = NSPoint(x: frame.minX+155, y: frame.midY) }; clamp(); rebuild(); save() }
     @objc func addApp() {
-        let picker = NSOpenPanel(); picker.title = "Choose an app for My AI Bubble"; picker.directoryURL = URL(fileURLWithPath: "/Applications")
+        guard apps.count < 10 else {
+            let alert = NSAlert();alert.messageText="You have ten app bubbles"
+            alert.informativeText="Remove an AI app from the centre bubble’s right-click menu to make room for another."
+            NSApp.activate(ignoringOtherApps:true);alert.runModal();return
+        }
+        let picker = NSOpenPanel(); picker.title = "Choose an AI app for My AI Bubble"; picker.directoryURL = URL(fileURLWithPath: "/Applications")
         picker.allowedContentTypes = [.applicationBundle]; picker.allowsMultipleSelection = false; picker.canChooseDirectories = false
         NSApp.activate(ignoringOtherApps: true)
         if picker.runModal() == .OK, let url = picker.url, !apps.contains(url.path), apps.count < 10 { apps.append(url.path); expanded = true; clamp(); save(); rebuild() }

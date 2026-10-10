@@ -12,7 +12,7 @@ Requires **macOS 13 Ventura or later**. The download includes both **Apple silic
 
 1. Download **My-AI-Bubble.zip** and double-click it to unzip.
 2. Drag **My AI Bubble** into **Applications**.
-3. Open it, then right-click the centre bubble to add your apps.
+3. Open it, then click the **+ bubble** to add your apps.
 
 **First-open warning:** this early release is locally signed, but is **not Developer ID signed or notarised by Apple**. macOS may block it. If you trust the download, try opening it, then use **System Settings → Privacy & Security → Open Anyway** and confirm. Some managed Macs do not permit this. [Apple’s guidance](https://support.apple.com/102445). There is no need to disable Gatekeeper or run a security-bypass command.
 
@@ -20,17 +20,19 @@ Requires **macOS 13 Ventura or later**. The download includes both **Apple silic
 
 **My AI Bubble is a launcher. It does not install or include ChatGPT, Claude or other AI apps.** Install the native Mac apps you want to use first. Their accounts and subscriptions are separate. A website open in a browser tab will not appear automatically as an app bubble.
 
-If none of the recognised apps are installed, you will see **just the centre bubble**. That is normal. Add an installed app like this:
+If none of the recognised apps are installed, you will see **the centre bubble and a + bubble**. That is normal. Add an installed app like this:
 
-1. **Right-click the centre bubble** to open its menu. On a trackpad, click with two fingers. You can also hold **Control** and click.
-2. Choose **Add an app…**.
-3. Select the app from your Mac’s **Applications** folder, then click **Open**.
-4. Its bubble appears around the centre. Click it to launch the app or bring its window forward.
+1. **Click the + bubble** beside the centre bubble.
+2. Select an installed app from your Mac’s **Applications** folder, then click **Open**.
+3. Its bubble appears around the centre. Click it to launch the app or bring its window forward.
 
-Repeat for your other apps, up to ten. You can also use the **◎ icon in the Mac menu bar** to find **Add an app…**. Common installed AI apps may already appear automatically.
+The **+ bubble stays visible**, even when the app bubbles are folded away. At the ten-app limit, it explains how to remove an app to make room. You can also right-click the centre bubble and choose **Add an AI app…** (two-finger click on a trackpad, or Control-click).
+
+Repeat for your other apps, up to ten. You can also use the **◎ icon in the Mac menu bar** to find **Add an AI app…**. Common installed AI apps may already appear automatically.
 
 ## Use
 
+- **Click the + bubble** to add an installed app.
 - **Drag the centre bubble** to move the group.
 - **Click the centre bubble** to fold or unfold the app bubbles.
 - **Click an app bubble** to launch the app or bring it forward.
