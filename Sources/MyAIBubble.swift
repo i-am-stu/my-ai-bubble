@@ -2,6 +2,42 @@ import Cocoa
 import CoreImage
 import UniformTypeIdentifiers
 
+// Original, quiet synthesized cues: no downloaded audio or audio permissions.
+final class BubbleAudio {
+    private var active: [NSSound] = []
+    func stop() { active.forEach { $0.stop() }; active.removeAll() }
+    func play(frequency: Double, endFrequency: Double, duration: Double, volume: Float) {
+        active.removeAll { !$0.isPlaying }
+        let rate = 22050
+        let count = Int(Double(rate)*duration)
+        var data = Data()
+        func word<T: FixedWidthInteger>(_ value: T) {
+            var little = value.littleEndian
+            withUnsafeBytes(of: &little) { data.append(contentsOf: $0) }
+        }
+        data.append(contentsOf: "RIFF".utf8); word(UInt32(36+count*2))
+        data.append(contentsOf: "WAVEfmt ".utf8); word(UInt32(16))
+        word(UInt16(1)); word(UInt16(1)); word(UInt32(rate)); word(UInt32(rate*2))
+        word(UInt16(2)); word(UInt16(16))
+        data.append(contentsOf: "data".utf8); word(UInt32(count*2))
+        var phase = 0.0
+        for index in 0..<count {
+            let t = Double(index)/Double(rate), fraction = Double(index)/Double(count)
+            phase += 2*Double.pi*(frequency+(endFrequency-frequency)*fraction)/Double(rate)
+            let envelope = min(1,t/0.008)*pow(1-fraction,3)
+            let sample = (sin(phase)+0.16*sin(phase*2))*envelope*0.45
+            word(Int16(sample*32767))
+        }
+        guard let sound = NSSound(data:data) else { return }
+        sound.volume = volume; active.append(sound); sound.play()
+    }
+    func click() { play(frequency:620,endFrequency:420,duration:0.065,volume:0.22) }
+    func bubble(opening: Bool, rank: Int) {
+        let pitch = opening ? 780+Double(rank)*45 : 650-Double(rank)*25
+        play(frequency:pitch,endFrequency:pitch*(opening ? 1.12 : 0.78),duration:0.095,volume:0.12)
+    }
+}
+
 final class BubblePanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
@@ -219,6 +255,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var animation: Timer?
     var animationStarts: [CGFloat] = []
     var animationBegan: TimeInterval = 0
+    let audio = BubbleAudio()
+    var soundedBubbles = Set<Int>()
+    var soundsEnabled: Bool { defaults.object(forKey:"soundsEnabled") == nil || defaults.bool(forKey:"soundsEnabled") }
     var reducedMotion = false
     var status: NSStatusItem!
     var appViews: [String: BubbleView] = [:]
@@ -271,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func rebuild() {
         animation?.invalidate(); animation = nil
+        audio.stop()
         draggingApp = nil; draggingAngle = nil
         panels.forEach { $0.close() }; panels.removeAll(); appViews.removeAll(); iconPanels.removeAll()
         iconProgress = Array(repeating: expanded ? 1 : 0, count: apps.count)
@@ -355,6 +395,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for index in iconProgress.indices {
             let rank = expanded ? index : iconProgress.count-1-index
             let delay = reducedMotion ? 0 : Double(rank) * 0.055
+            if elapsed >= delay && !soundedBubbles.contains(index) {
+                soundedBubbles.insert(index)
+                // Reduced Motion folds together; use just one quiet cue.
+                if soundsEnabled && (!reducedMotion || rank == 0) && abs(animationStarts[index]-(expanded ? 1 : 0)) > 0.01 {
+                    audio.bubble(opening:expanded,rank:rank)
+                }
+            }
             let duration = reducedMotion ? 0.12 : 0.32
             let t = max(0, min(1, (elapsed-delay)/duration))
             let eased = CGFloat(t*t*(3-2*t))
@@ -389,11 +436,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let submenu = NSMenu()
         for (index,path) in apps.enumerated() { let entry = item(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent, #selector(removeApp(_:)), in: submenu); entry.tag = index }
         remove.submenu = submenu; menu.addItem(remove)
+        menu.addItem(.separator())
+        let soundItem = item("Sound effects", #selector(toggleSounds), in:menu)
+        soundItem.state = soundsEnabled ? .on : .off
         menu.addItem(.separator()); _ = item("Quit My AI Bubble", #selector(quit), in: menu)
         return menu
     }
+    @objc func toggleSounds() {
+        defaults.set(!soundsEnabled,forKey:"soundsEnabled")
+        if !soundsEnabled { audio.stop() }
+        status?.menu = makeMenu()
+    }
     @objc func toggle() {
         animation?.invalidate()
+        audio.stop(); soundedBubbles.removeAll()
+        if soundsEnabled { audio.click() }
         expanded.toggle()
         reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         clamp(); save()

@@ -2,6 +2,7 @@
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let test = AppDelegate()
+test.defaults.set(false,forKey:"soundsEnabled")
 for count in [0, 1, 6, 10] {
     test.apps = Array(repeating: "/System/Applications/Calculator.app", count: count)
     test.expanded = true; test.rebuild()
@@ -78,6 +79,8 @@ assert(test.anchor.x.isFinite && test.anchor.y.isFinite)
 let invalidRemoval = NSMenuItem(); invalidRemoval.tag = -1
 let beforeRemoval = test.apps; test.removeApp(invalidRemoval)
 assert(test.apps == beforeRemoval)
+test.toggleSounds(); assert(test.soundsEnabled)
+test.toggleSounds(); assert(!test.soundsEnabled)
 assert(BubbleView.coreArtwork != nil, "Artwork resource missing")
 assert(BubbleView.glassBase != nil, "Core Image setup failed")
 let menuTitles = test.makeMenu().items.map { $0.title }.joined(separator: " ").lowercased()

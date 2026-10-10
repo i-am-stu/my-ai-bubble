@@ -38,6 +38,7 @@ Repeat for your other apps, up to ten. You can also use the **◎ icon in the Ma
 - **Drag an app bubble around the centre** to reorder your apps. The order is saved automatically.
 - **Click an app bubble** to launch the app or bring it forward.
 - **Right-click the centre bubble** to add or remove apps, bring the bubble into view, or quit.
+- **Sound effects** in that menu turns the quiet click and opening/closing sounds on or off. Your choice is saved.
 
 The menu-bar icon provides the same controls. App choices and position are remembered. You can add up to ten installed apps. Common AI apps are picked up automatically from Applications on first launch; any other installed app can be added through the menu.
 
