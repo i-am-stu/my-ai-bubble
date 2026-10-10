@@ -163,8 +163,9 @@ final class BubbleView: NSView {
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         NSBezierPath(ovalIn: destination).addClip()
-        if let frame = Self.glassContext.createCGImage(glass, from: CGRect(x:0,y:0,width:144,height:144)) {
-            NSImage(cgImage: frame, size: NSSize(width:144,height:144)).draw(in: destination, from: .zero, operation: .sourceOver, fraction: 0.85)
+        let opaqueGlass = glass.composited(over: CIImage(color: CIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)))
+        if let frame = Self.glassContext.createCGImage(opaqueGlass, from: CGRect(x:0,y:0,width:144,height:144)) {
+            NSImage(cgImage: frame, size: NSSize(width:144,height:144)).draw(in: destination, from: .zero, operation: .sourceOver, fraction: 1)
         }
         // Broad, faint reflections drift across the artwork rather than pulsing its scale.
         if let context = NSGraphicsContext.current?.cgContext {
