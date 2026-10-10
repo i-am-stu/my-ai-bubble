@@ -7,12 +7,25 @@ for count in [0, 1, 6, 10] {
     test.apps = Array(repeating: "/System/Applications/Calculator.app", count: count)
     test.expanded = true; test.rebuild()
     assert(test.iconPanels.count == count)
+    assert(test.panels.allSatisfy { !$0.isMovable && !$0.isMovableByWindowBackground })
     let centre = test.panels[0].contentView as! BubbleView
     for (dx,dy): (CGFloat,CGFloat) in [(13.5,7.25),(-500,-400),(21,-3)] {
         centre.move?(dx,dy)
         let before = test.panels.map { $0.frame }
         centre.finishMove?()
         assert(test.panels.map { $0.frame } == before, "Release moved a window")
+    }
+    // Dragging into every edge must preserve the whole circular arrangement.
+    for delta in [(CGFloat(10000),CGFloat(0)),(-10000,0),(0,10000),(0,-10000)] {
+        let offsets = test.iconPanels.map { NSPoint(x:$0.frame.midX-test.anchor.x,y:$0.frame.midY-test.anchor.y) }
+        centre.move?(delta.0,delta.1)
+        for (panel,offset) in zip(test.iconPanels,offsets) {
+            assert(abs(panel.frame.midX-test.anchor.x-offset.x) < 0.01)
+            assert(abs(panel.frame.midY-test.anchor.y-offset.y) < 0.01)
+        }
+        let frames = test.panels.map { $0.frame }
+        centre.finishMove?()
+        assert(test.panels.map { $0.frame } == frames)
     }
     test.toggle(); test.reducedMotion = false
     test.advanceAnimation(at: test.animationBegan + 0.1)
@@ -31,6 +44,26 @@ for count in [0, 1, 6, 10] {
     assert(test.iconProgress.allSatisfy { $0 == 0 })
     test.panels.forEach { $0.close() }
 }
+// Small movements must accumulate even while the displayed group is edge-clamped.
+if let screen = NSScreen.main {
+    test.apps = ["/A.app"]; test.expanded = true
+    test.anchor = NSPoint(x:screen.visibleFrame.maxX-117,y:screen.visibleFrame.midY)
+    test.rebuild()
+    let core = test.panels[0].contentView as! BubbleView
+    let start = test.anchor
+    for _ in 0..<150 { core.move?(1,0) }
+    assert(abs(test.dragAnchor!.x-(start.x+150)) < 0.01)
+    core.finishMove?(); assert(test.dragAnchor == nil)
+    test.panels.forEach { $0.close() }
+}
+// Simulate an external/native move of just the centre, including resizing.
+test.apps = ["/A.app", "/B.app"]; test.expanded = true; test.clamp(); test.rebuild()
+let protectedCore = test.panels[0]
+let expectedCore = protectedCore.frame
+protectedCore.setFrame(NSRect(x:0,y:0,width:80,height:80),display:true)
+RunLoop.main.run(until:Date(timeIntervalSinceNow:0.1))
+assert(protectedCore.frame == expectedCore, "External reposition escaped the group")
+test.panels.forEach { $0.close() }
 // Reordering keeps the dragged app's panel/action identity and persists its order.
 test.apps = ["/A.app", "/B.app", "/C.app", "/D.app"]
 test.expanded = true; test.rebuild()
@@ -81,6 +114,16 @@ let beforeRemoval = test.apps; test.removeApp(invalidRemoval)
 assert(test.apps == beforeRemoval)
 test.toggleSounds(); assert(test.soundsEnabled)
 test.toggleSounds(); assert(!test.soundsEnabled)
+test.apps = ["/A.app", "/B.app"]; test.expanded = true; test.rebuild()
+test.updateActiveApp("/A.app")
+assert(test.appViews["/A.app"]!.isActiveApp && !test.appViews["/B.app"]!.isActiveApp)
+test.updateActiveApp("/B.app")
+assert(!test.appViews["/A.app"]!.isActiveApp && test.appViews["/B.app"]!.isActiveApp)
+test.updateActiveApp("/Other.app")
+assert(test.appViews.values.allSatisfy { !$0.isActiveApp })
+test.updateActiveApp(nil)
+assert(test.appViews.values.allSatisfy { !$0.isActiveApp })
+test.panels.forEach { $0.close() }
 assert(BubbleView.coreArtwork != nil, "Artwork resource missing")
 assert(BubbleView.glassBase != nil, "Core Image setup failed")
 let menuTitles = test.makeMenu().items.map { $0.title }.joined(separator: " ").lowercased()

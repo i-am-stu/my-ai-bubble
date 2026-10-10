@@ -37,6 +37,8 @@ Repeat for your other apps, up to ten. You can also use the **◎ icon in the Ma
 
 ## Use
 
+A subtle multicoloured glow marks the app currently in the foreground. It follows your app switching and disappears when you use an app outside your bubbles. It indicates focus, not task progress or unread messages.
+
 - **Drag the centre bubble** to move the group.
 - **Click the centre bubble** to fold or unfold the app bubbles.
 - **Drag an app bubble around the centre** to reorder your apps. The order is saved automatically.

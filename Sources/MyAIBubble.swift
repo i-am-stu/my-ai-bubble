@@ -38,9 +38,43 @@ final class BubbleAudio {
     }
 }
 
-final class BubblePanel: NSPanel {
+final class BubblePanel: NSPanel, NSWindowDelegate {
+    private var intendedFrame: NSRect?
+    private var placing = false
+    private var repairPending = false
+    func place(at origin: NSPoint) {
+        var target = frame; target.origin = origin
+        intendedFrame = target
+        placing = true
+        super.setFrame(target, display:true)
+        placing = false
+    }
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(placing ? frameRect : (intendedFrame ?? frameRect), display:flag)
+    }
+    override func setFrameOrigin(_ point: NSPoint) {
+        super.setFrameOrigin(placing ? point : (intendedFrame?.origin ?? point))
+    }
+    func windowDidMove(_ notification: Notification) { restoreGroupPosition() }
+    func windowDidResize(_ notification: Notification) { restoreGroupPosition() }
+    private func restoreGroupPosition() {
+        guard !placing, !repairPending, let target = intendedFrame, frame != target else { return }
+        repairPending = true
+        // Defer until the native move completes, and use the newest drag target.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.repairPending = false
+            guard self.isVisible, let target = self.intendedFrame, self.frame != target else { return }
+            NSLog("My AI Bubble: correcting displaced panel %@ from %@ to %@", self.contentView?.accessibilityLabel() ?? "bubble", NSStringFromRect(self.frame), NSStringFromRect(target))
+            self.placing = true
+            self.setFrame(target, display:true)
+            self.placing = false
+        }
+    }
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+    // The group handles screen edges; AppKit must not move each bubble separately.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 final class BubbleView: NSView {
     let label: String
@@ -90,6 +124,7 @@ final class BubbleView: NSView {
         return NSColor(deviceRed: red/4, green: green/4, blue: blue/4, alpha: 1)
     }()
     var reveal: CGFloat = 1 { didSet { needsDisplay = true } }
+    var isActiveApp = false { didSet { if oldValue != isActiveApp { needsDisplay = true } } }
     var hovered = false
     var hoverArea: NSTrackingArea?
     override func updateTrackingAreas() {
@@ -127,6 +162,7 @@ final class BubbleView: NSView {
         let shadowBounds = NSRect(x:bounds.midX-diameter/2, y:bounds.midY-diameter/2, width:diameter, height:diameter)
         drawSoftShadow(under:NSBezierPath(ovalIn:shadowBounds), blur:icon == nil ? 11 : 5,
                        offset:icon == nil ? -2 : -1.5, opacity:icon == nil ? 0.075 : 0.10)
+        if icon != nil && isActiveApp { drawActiveGlow(around:shadowBounds) }
         let transform = NSAffineTransform()
         transform.translateX(by: bounds.midX, yBy: bounds.midY)
         transform.scale(by: scale)
@@ -146,6 +182,23 @@ final class BubbleView: NSView {
             drawCore()
         }
     }
+    func drawActiveGlow(around circle: NSRect) {
+        guard let gradient = NSGradient(colors:[
+            NSColor(calibratedRed:0.22,green:0.85,blue:1,alpha:1),
+            NSColor(calibratedRed:0.43,green:0.35,blue:1,alpha:1),
+            NSColor(calibratedRed:1,green:0.35,blue:0.78,alpha:1),
+            NSColor(calibratedRed:1,green:0.77,blue:0.35,alpha:1)]) else { return }
+        // Feathered outer halo and a narrow coloured rim. No animation timer.
+        for (width, opacity): (CGFloat, CGFloat) in [(9,0.045),(7.5,0.065),(6,0.10),(4.5,0.16),(3,0.24),(1.6,0.90)] {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.cgContext.setAlpha(opacity)
+            let ring = NSBezierPath(ovalIn:circle.insetBy(dx:-width,dy:-width))
+            ring.append(NSBezierPath(ovalIn:circle.insetBy(dx:0.3,dy:0.3)))
+            ring.windingRule = .evenOdd; ring.addClip()
+            gradient.draw(in:circle.insetBy(dx:-9,dy:-9),angle:35)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+    }
     func drawSoftShadow(under shape: NSBezierPath, blur: CGFloat, offset: CGFloat, opacity: CGFloat = 0.10) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         NSGraphicsContext.saveGraphicsState()
@@ -161,6 +214,7 @@ final class BubbleView: NSView {
     }
     private var lightTimer: Timer?
     private let lightEpoch = ProcessInfo.processInfo.systemUptime
+    private var lastGlassFrame: CGImage?
     var previewTime: Double?
     static let glassContext = CIContext(options: [.cacheIntermediates: false])
     static let glassBase: CIImage? = {
@@ -206,7 +260,11 @@ final class BubbleView: NSView {
         defer { NSGraphicsContext.restoreGraphicsState() }
         NSBezierPath(ovalIn: destination).addClip()
         let opaqueGlass = glass.composited(over: CIImage(color: CIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)))
+        // If a transient rendering failure occurs, retain the previous valid glass frame.
         if let frame = Self.glassContext.createCGImage(opaqueGlass, from: CGRect(x:0,y:0,width:144,height:144)) {
+            lastGlassFrame = frame
+        }
+        if let frame = lastGlassFrame {
             NSImage(cgImage: frame, size: NSSize(width:144,height:144)).draw(in: destination, from: .zero, operation: .sourceOver, fraction: 1)
         }
         // Broad, faint reflections drift across the artwork rather than pulsing its scale.
@@ -248,6 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var panels: [BubblePanel] = []
     var apps: [String] = []
     var anchor = NSPoint(x: 160, y: 350)
+    var dragAnchor: NSPoint?
     var expanded = true
     var iconPanels: [BubblePanel] = []
     var orbitRadius: CGFloat { 82 }
@@ -275,6 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         apps = validatedApps(defaults.stringArray(forKey: "apps") ?? initial)
         if defaults.object(forKey: "x") != nil { anchor = NSPoint(x: defaults.double(forKey: "x"), y: defaults.double(forKey: "y")) }
         clamp(); rebuild()
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector:#selector(frontmostAppChanged), name:NSWorkspace.didActivateApplicationNotification, object:nil)
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.title = "◎"
         status.button?.toolTip = "My AI Bubble"
@@ -305,9 +365,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func panel(view: BubbleView, centre: NSPoint) -> BubblePanel {
         let size = view.frame.width
         let panel = BubblePanel(contentRect: NSRect(x: centre.x-size/2, y: centre.y-size/2, width: size, height: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        // Movement belongs exclusively to our mouse handlers. Native window dragging
+        // can trigger macOS edge tiling and relocate the centre independently.
+        panel.isMovable = false
+        panel.isMovableByWindowBackground = false
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
+        panel.delegate = panel
+        panel.place(at:panel.frame.origin)
+        panel.isExcludedFromWindowsMenu = true
         panel.level = .floating; panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .fullScreenDisallowsTiling, .auxiliary]
+        panel.minSize = panel.frame.size
+        panel.maxSize = panel.frame.size
         panel.isReleasedWhenClosed = false; panel.contentView = view
         panel.orderFrontRegardless(); return panel
     }
@@ -315,19 +384,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         animation?.invalidate(); animation = nil
         audio.stop()
         draggingApp = nil; draggingAngle = nil
+        dragAnchor = nil
         panels.forEach { $0.close() }; panels.removeAll(); appViews.removeAll(); iconPanels.removeAll()
         iconProgress = Array(repeating: expanded ? 1 : 0, count: apps.count)
         let centre = BubbleView(label: "My AI Bubble", size: 96)
         centre.action = { [weak self] in self?.toggle() }
         centre.move = { [weak self] dx,dy in
             guard let self = self else { return }
-            self.anchor.x += dx; self.anchor.y += dy
-            for panel in self.panels { panel.setFrameOrigin(NSPoint(x: panel.frame.minX+dx, y: panel.frame.minY+dy)) }
+            // Keep the unconstrained drag target: clamping the previous position
+            // loses small movements at a monitor seam and prevents slow crossing.
+            var target = self.dragAnchor ?? self.anchor
+            target.x += dx; target.y += dy
+            self.dragAnchor = target
+            self.anchor = target
+            self.clamp()
+            // Position every panel from the shared anchor, then refresh the transparent core.
+            self.layoutIcons()
+            self.refreshCentre()
+
         }
         centre.finishMove = { [weak self] in
             guard let self = self, let core = self.panels.first else { return }
             // Persist the actual dropped position without clamping or relaying out windows.
             self.anchor = NSPoint(x: core.frame.midX, y: core.frame.midY)
+            self.dragAnchor = nil
+            self.refreshCentre()
             self.save()
         }
         centre.context = { [weak self] in self?.makeMenu() ?? NSMenu() }
@@ -348,16 +429,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         layoutIcons()
+        updateActiveApp(NSWorkspace.shared.frontmostApplication?.bundleURL?.path)
         panels.first?.orderFrontRegardless()
         status?.menu = makeMenu()
     }
+    @objc func frontmostAppChanged(_ notification: Notification) {
+        let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        updateActiveApp(application?.bundleURL?.path)
+    }
+    func updateActiveApp(_ path: String?) {
+        let active = path.map { URL(fileURLWithPath:$0).resolvingSymlinksInPath().standardizedFileURL.path }
+        for (appPath,view) in appViews {
+            view.isActiveApp = active == URL(fileURLWithPath:appPath).resolvingSymlinksInPath().standardizedFileURL.path
+        }
+    }
+    func refreshCentre() {
+        guard let core = panels.first else { return }
+        core.alphaValue = 1
+        core.orderFrontRegardless()
+        core.contentView?.needsDisplay = true
+        core.displayIfNeeded()
+    }
     func layoutIcons() {
-        panels.first?.setFrameOrigin(NSPoint(x: anchor.x-48, y: anchor.y-48))
+        panels.first?.place(at:NSPoint(x: anchor.x-48, y: anchor.y-48))
         for (index, panel) in iconPanels.enumerated() {
             let progress = iconProgress[index]
             let angle = apps[index] == draggingApp ? (draggingAngle ?? appAngle(index)) : appAngle(index)
             let distance: CGFloat = reducedMotion ? orbitRadius : orbitRadius * progress
-            panel.setFrameOrigin(NSPoint(x: anchor.x+distance*cos(angle)-panel.frame.width/2, y: anchor.y+distance*sin(angle)-panel.frame.height/2))
+            panel.place(at:NSPoint(x: anchor.x+distance*cos(angle)-panel.frame.width/2, y: anchor.y+distance*sin(angle)-panel.frame.height/2))
             panel.alphaValue = progress
             panel.ignoresMouseEvents = progress < 0.98
             (panel.contentView as? BubbleView)?.reveal = reducedMotion ? 1 : progress
