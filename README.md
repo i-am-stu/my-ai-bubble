@@ -72,4 +72,6 @@ App logos are read from apps installed on the user’s Mac. The product names an
 
 ## Licence
 
-No open-source licence has been selected yet. The source is published for inspection; release downloads are provided for use on your own Mac.
+Licensed under the [MIT License](LICENSE). You can use, modify and share the software, including commercially, provided you retain the copyright and licence notice. The software is provided without warranty.
+
+Third-party app names and logos remain the property of their respective owners and are not covered by this licence.
