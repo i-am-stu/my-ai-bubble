@@ -32,9 +32,62 @@ final class BubbleAudio {
         sound.volume = volume; active.append(sound); sound.play()
     }
     func click() { play(frequency:620,endFrequency:420,duration:0.065,volume:0.22) }
+    func selectApp() { play(frequency:740,endFrequency:920,duration:0.075,volume:0.16) }
     func bubble(opening: Bool, rank: Int) {
         let pitch = opening ? 780+Double(rank)*45 : 650-Double(rank)*25
         play(frequency:pitch,endFrequency:pitch*(opening ? 1.12 : 0.78),duration:0.095,volume:0.12)
+    }
+}
+
+struct UsageEntry: Codable {
+    var seconds: Double = 0
+    var switches: Int = 0
+}
+final class UsageTracker {
+    let defaults: UserDefaults
+    var days: [String: [String: UsageEntry]]
+    var enabled: Bool {
+        get { defaults.object(forKey:"usageEnabled") == nil || defaults.bool(forKey:"usageEnabled") }
+        set { defaults.set(newValue,forKey:"usageEnabled") }
+    }
+    init(defaults: UserDefaults) {
+        self.defaults = defaults
+        days = defaults.data(forKey:"usageDays").flatMap { try? JSONDecoder().decode([String:[String:UsageEntry]].self,from:$0) } ?? [:]
+    }
+    func dayKey(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.year,.month,.day],from:date)
+        return String(format:"%04d-%02d-%02d",c.year!,c.month!,c.day!)
+    }
+    func record(path: String, seconds: Double = 0, switches: Int = 0, at date: Date = Date()) {
+        guard enabled else { return }
+        let key = dayKey(date)
+        var entry = days[key]?[path] ?? UsageEntry()
+        entry.seconds += max(0,seconds); entry.switches += max(0,switches)
+        days[key,default:[:]][path] = entry
+    }
+    func weekly(at date: Date = Date()) -> [String:UsageEntry] {
+        var calendar = Calendar(identifier:.iso8601); calendar.timeZone = .current
+        let start = calendar.dateInterval(of:.weekOfYear,for:date)!.start
+        let first = dayKey(start), last = dayKey(date)
+        var result: [String:UsageEntry] = [:]
+        for (day, entries) in days where day >= first && day <= last {
+            for (path, entry) in entries {
+                result[path,default:UsageEntry()].seconds += entry.seconds
+                result[path,default:UsageEntry()].switches += entry.switches
+            }
+        }
+        return result
+    }
+    func save() {
+        // Retain at most 90 days of local activity totals.
+        let cutoff = dayKey(Calendar.current.date(byAdding:.day,value:-90,to:Date())!)
+        days = days.filter { $0.key >= cutoff }
+        if let data = try? JSONEncoder().encode(days) { defaults.set(data,forKey:"usageDays") }
+    }
+    func clear() { days.removeAll(); defaults.removeObject(forKey:"usageDays") }
+    static func activeSeconds(elapsed: Double, idle: Double) -> Double {
+        guard elapsed > 0, elapsed <= 5, idle.isFinite else { return 0 }
+        return min(elapsed,max(0,60-idle))
     }
 }
 
@@ -324,6 +377,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var status: NSStatusItem!
     var appViews: [String: BubbleView] = [:]
     let defaults = UserDefaults.standard
+    lazy var usage = UsageTracker(defaults:defaults)
+    var usageTimer: Timer?
+    var usageLastTick = ProcessInfo.processInfo.systemUptime
+    var usageLastSave = ProcessInfo.processInfo.systemUptime
+    var usageForeground: String?
+    var usageSuspended = false
+    func trackedPath(_ path: String?) -> String? {
+        guard let path = path else { return nil }
+        let canonical = URL(fileURLWithPath:path).resolvingSymlinksInPath().path
+        return apps.first { URL(fileURLWithPath:$0).resolvingSymlinksInPath().path == canonical }
+    }
+    func sampleUsage() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let elapsed = now-usageLastTick; usageLastTick = now
+        let actual = trackedPath(NSWorkspace.shared.frontmostApplication?.bundleURL?.path)
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState,eventType:CGEventType(rawValue:UInt32.max)!)
+        if !usageSuspended, actual == usageForeground, let path = actual {
+            usage.record(path:path,seconds:UsageTracker.activeSeconds(elapsed:elapsed,idle:idle))
+        }
+        if now-usageLastSave >= 30 { usage.save(); usageLastSave = now }
+    }
+    @objc func suspendUsage(_ notification: Notification) {
+        sampleUsage(); usageSuspended = true; usage.save()
+    }
+    @objc func resumeUsage(_ notification: Notification) {
+        usageSuspended = false; usageLastTick = ProcessInfo.processInfo.systemUptime
+        usageForeground = trackedPath(NSWorkspace.shared.frontmostApplication?.bundleURL?.path)
+    }
     func applicationDidFinishLaunching(_ notification: Notification) {
         defaults.removeObject(forKey: "dockAlerts")
         let names = ["ChatGPT", "Claude", "Granola", "Perplexity", "ChatGPT Atlas", "superwhisper"]
@@ -339,6 +420,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.button?.title = "◎"
         status.button?.toolTip = "My AI Bubble"
         status.menu = makeMenu()
+        usageForeground = trackedPath(NSWorkspace.shared.frontmostApplication?.bundleURL?.path)
+        usageLastTick = ProcessInfo.processInfo.systemUptime
+        let usageClock = Timer(timeInterval:2,repeats:true) { [weak self] _ in self?.sampleUsage() }
+        usageTimer = usageClock; RunLoop.main.add(usageClock,forMode:.common)
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+            NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(suspendUsage(_:)),name:name,object:nil)
+        }
+        for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
+            NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(resumeUsage(_:)),name:name,object:nil)
+        }
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
     // Preferences are local data, not instructions to open arbitrary files or URLs.
@@ -435,6 +526,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     @objc func frontmostAppChanged(_ notification: Notification) {
         let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        sampleUsage()
+        let next = trackedPath(application?.bundleURL?.path)
+        if !usageSuspended, let next = next, next != usageForeground { usage.record(path:next,switches:1) }
+        usageForeground = next; usage.save()
         updateActiveApp(application?.bundleURL?.path)
     }
     func updateActiveApp(_ path: String?) {
@@ -520,6 +615,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.informativeText = "Remove its bubble and add the installed app again from the centre bubble’s menu."
             NSApp.activate(ignoringOtherApps: true); alert.runModal(); return
         }
+        if soundsEnabled { audio.selectApp() }
         let config = NSWorkspace.OpenConfiguration(); config.activates = true
         NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: config) { _,error in
             if let error = error { DispatchQueue.main.async { let alert = NSAlert(); alert.messageText = "Couldn’t open this app"; alert.informativeText = error.localizedDescription; alert.runModal() } }
@@ -541,8 +637,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         let soundItem = item("Sound effects", #selector(toggleSounds), in:menu)
         soundItem.state = soundsEnabled ? .on : .off
-        menu.addItem(.separator()); _ = item("Quit My AI Bubble", #selector(quit), in: menu)
+        menu.addItem(.separator())
+        _ = item("My usage…", #selector(showUsage), in: menu)
+        _ = item("About My AI Bubble…", #selector(showAbout), in: menu)
+        _ = item("Quit My AI Bubble", #selector(quit), in: menu)
         return menu
+    }
+    @objc func showUsage() {
+        sampleUsage(); usage.save()
+        let alert = NSAlert(); alert.messageText = "My usage this week"
+        alert.informativeText = "Foreground time • Monday to today\nPauses after 60 seconds without keyboard or mouse input, and while your Mac sleeps. Counts only while My AI Bubble is running."
+        let ranking = usage.weekly().sorted { $0.value.seconds > $1.value.seconds }
+        var rows = ranking.enumerated().map { index, pair -> String in
+            let name = URL(fileURLWithPath:pair.key).deletingPathExtension().lastPathComponent
+            let minutes = Int(pair.value.seconds/60)
+            let time = minutes == 0 ? "<1 min" : (minutes >= 60 ? "\(minutes/60)h \(minutes%60)m" : "\(minutes)m")
+            return "\(index+1). \(name)\n    \(time) · \(pair.value.switches) switches"
+        }.joined(separator:"\n\n")
+        if rows.isEmpty { rows = "No usage yet. Use your added apps and check back here." }
+        rows += "\n\nTracking: \(usage.enabled ? "On" : "Off") · Stored only on this Mac."
+        let scroll = NSScrollView(frame:NSRect(x:0,y:0,width:360,height:240))
+        scroll.hasVerticalScroller = true; scroll.drawsBackground = false
+        let text = NSTextView(frame:scroll.bounds)
+        text.isEditable = false; text.isSelectable = true; text.drawsBackground = false
+        text.font = .systemFont(ofSize:13); text.string = rows
+        text.textContainer?.widthTracksTextView = true
+        text.autoresizingMask = [.width]; scroll.documentView = text
+        alert.accessoryView = scroll
+        alert.addButton(withTitle:"Done")
+        alert.addButton(withTitle:usage.enabled ? "Turn tracking off" : "Turn tracking on")
+        alert.addButton(withTitle:"Clear usage…")
+        NSApp.activate(ignoringOtherApps:true)
+        let result = alert.runModal()
+        if result == .alertSecondButtonReturn {
+            usage.enabled.toggle(); usageLastTick = ProcessInfo.processInfo.systemUptime
+        } else if result == .alertThirdButtonReturn {
+            let confirm = NSAlert(); confirm.messageText = "Clear all usage history?"
+            confirm.informativeText = "This removes your local time totals and switch counts."
+            confirm.addButton(withTitle:"Cancel"); confirm.addButton(withTitle:"Clear usage")
+            if confirm.runModal() == .alertSecondButtonReturn { usage.clear() }
+        }
+    }
+    @objc func showAbout() {
+        let about = NSAlert()
+        about.messageText = "My AI Bubble"
+        let version = Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? ""
+        about.informativeText = "Built by Stu Collett\nProduct Designer\n\nA little home for your AI apps.\n\nVersion \(version)"
+        about.icon = NSImage(named:NSImage.applicationIconName)
+        about.addButton(withTitle:"Done")
+        about.addButton(withTitle:"Visit stucollett.com")
+        NSApp.activate(ignoringOtherApps:true)
+        if about.runModal() == .alertSecondButtonReturn,
+           let url = URL(string:"https://www.stucollett.com") {
+            NSWorkspace.shared.open(url)
+        }
     }
     @objc func toggleSounds() {
         defaults.set(!soundsEnabled,forKey:"soundsEnabled")
@@ -582,7 +730,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard apps.indices.contains(sender.tag) else { return }
         apps.remove(at: sender.tag); save(); rebuild()
     }
-    @objc func quit() { NSApp.terminate(nil) }
+    @objc func quit() { sampleUsage(); usage.save(); NSApp.terminate(nil) }
 }
 let app = NSApplication.shared
 let delegate = AppDelegate()

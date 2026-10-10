@@ -6,6 +6,7 @@ My AI Bubble opens installed Mac apps selected by the user. It does not assess w
 
 - No app network requests, analytics, account system, chat reading or notification monitoring.
 - Selected app paths, their order and the bubble position are stored in local macOS preferences (`local.stucollett.myai`). They are not encrypted; another process running as your user may read or change them.
+- When usage tracking is enabled (the default), daily foreground seconds and switch counts for added apps are stored in local preferences for up to 90 days. The usage window can disable tracking or clear the data. System idle duration is queried without recording input contents.
 - App icons are read from installed applications. Bubble artwork is bundled.
 - No Accessibility, Screen Recording, camera, microphone, administrator or Full Disk Access permission is requested.
 - The app is not App Sandbox isolated. It runs with the ordinary permissions of the logged-in user.

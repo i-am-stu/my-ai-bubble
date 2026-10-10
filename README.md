@@ -44,11 +44,17 @@ A subtle multicoloured glow marks the app currently in the foreground. It follow
 - **Drag an app bubble around the centre** to reorder your apps. The order is saved automatically.
 - **Click an app bubble** to launch the app or bring it forward.
 - **Right-click the centre bubble** to add or remove apps, bring the bubble into view, or quit.
-- **Sound effects** in that menu turns the quiet click and opening/closing sounds on or off. Your choice is saved.
+- **Sound effects** in that menu turns the quiet selection, centre-click and opening/closing sounds on or off. Your choice is saved.
 
 The menu-bar icon provides the same controls. App choices and position are remembered. You can add up to ten installed apps. Common AI apps are picked up automatically from Applications on first launch; any other installed app can be added through the menu.
 
 To launch at login, add My AI Bubble in **System Settings → General → Login Items**.
+
+## My usage
+
+Right-click the centre bubble and choose **My usage…** to see your added apps ranked by foreground time this week (Monday to today), with a switch count for each app. Tracking starts when you use this version and only runs while My AI Bubble is open. It pauses after 60 seconds without keyboard or mouse input and during sleep or inactive sessions. Time is approximate; it does not measure tokens, task progress or whether you are reading the screen.
+
+Tracking is on by default. The usage window lets you turn it off or clear all history. Daily totals stay on this Mac, are retained for up to 90 days, and are never uploaded. No keystrokes or chat content are recorded.
 
 ## What it does
 
