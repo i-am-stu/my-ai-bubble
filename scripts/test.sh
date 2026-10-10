@@ -7,4 +7,4 @@ awk '/^let app = NSApplication.shared$/ {exit} {print}' "$ROOT/Sources/MyAIBubbl
 cat "$ROOT/Tests/Behaviour.swift" >> "$ROOT/build/BehaviourChecks.swift"
 cp "$ROOT/Resources/BubbleArtwork.png" "$TESTAPP/Contents/Resources/"
 xcrun swiftc "$ROOT/build/BehaviourChecks.swift" -framework Cocoa -framework CoreImage -o "$TESTAPP/Contents/MacOS/BehaviourChecks"
-"$TESTAPP/Contents/MacOS/BehaviourChecks" "$ROOT/docs/preview.png"
+"$TESTAPP/Contents/MacOS/BehaviourChecks" "$ROOT/build/test-preview.png"

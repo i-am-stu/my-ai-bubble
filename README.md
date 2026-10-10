@@ -6,7 +6,7 @@ A small floating launcher for the AI apps on your Mac. Add your apps, move the b
 
 [**Download for Mac**](https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.dmg) · [All releases](https://github.com/i-am-stu/my-ai-bubble/releases) · [Report an issue](https://github.com/i-am-stu/my-ai-bubble/issues)
 
-![My AI Bubble preview](docs/preview.png)
+![My AI Bubble with Stu’s current app setup](docs/preview.png)
 
 ## Install
 
