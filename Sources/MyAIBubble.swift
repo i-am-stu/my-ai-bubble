@@ -142,7 +142,7 @@ final class BubbleView: NSView {
             drawCore()
         }
     }
-    func drawSoftShadow(under shape: NSBezierPath, blur: CGFloat, offset: CGFloat) {
+    func drawSoftShadow(under shape: NSBezierPath, blur: CGFloat, offset: CGFloat, opacity: CGFloat = 0.10) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         NSGraphicsContext.saveGraphicsState()
         // Paint only a diffuse shadow. No opaque duplicate under the antialiased edge.
@@ -151,7 +151,7 @@ final class BubbleView: NSView {
         let transform = NSAffineTransform(); transform.translateX(by: shift, yBy: 0)
         displaced.transform(using: transform as AffineTransform)
         context.setShadow(offset: CGSize(width: -shift, height: offset), blur: blur,
-                          color: NSColor.black.withAlphaComponent(0.10).cgColor)
+                          color: NSColor.black.withAlphaComponent(opacity).cgColor)
         NSColor.black.setFill(); displaced.fill()
         NSGraphicsContext.restoreGraphicsState()
     }
@@ -198,7 +198,7 @@ final class BubbleView: NSView {
             glass = glass.applyingFilter("CIHueAdjust", parameters: [kCIInputAngleKey: 0.09*sin(t*0.19)])
         }
         let destination = bounds.insetBy(dx: 12, dy: 12)
-        drawSoftShadow(under: NSBezierPath(ovalIn: destination), blur: 9, offset: -2.5)
+        drawSoftShadow(under: NSBezierPath(ovalIn: destination), blur: 10, offset: -4, opacity: 0.22)
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         NSBezierPath(ovalIn: destination).addClip()
