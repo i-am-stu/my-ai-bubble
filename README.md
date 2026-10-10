@@ -2,7 +2,7 @@
 
 A small floating launcher for the AI apps on your Mac. Add your apps, move the bubble wherever it suits you, and click an app bubble to bring its window forward.
 
-[**Download for Mac**](https://github.com/stu-collett/my-ai-bubble/releases/latest/download/My-AI-Bubble.zip) · [All releases](https://github.com/stu-collett/my-ai-bubble/releases) · [Report an issue](https://github.com/stu-collett/my-ai-bubble/issues)
+[**Download for Mac**](https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.zip) · [All releases](https://github.com/i-am-stu/my-ai-bubble/releases) · [Report an issue](https://github.com/i-am-stu/my-ai-bubble/issues)
 
 ![My AI Bubble preview](docs/preview.png)
 
