@@ -9,7 +9,6 @@ final class BubblePanel: NSPanel {
 final class BubbleView: NSView {
     let label: String
     let icon: NSImage?
-    var isAddButton = false
     static let coreArtwork: NSImage? = {
         guard let path = Bundle.main.path(forResource: "BubbleArtwork", ofType: "png") else { return nil }
         return NSImage(contentsOfFile: path)
@@ -69,6 +68,9 @@ final class BubbleView: NSView {
     var move: ((CGFloat, CGFloat) -> Void)?
     var finishMove: (() -> Void)?
     var context: (() -> NSMenu)?
+    var dragTo: ((NSPoint) -> Void)?
+    var pressPoint = NSPoint.zero
+    var pressCentre = NSPoint.zero
     var lastPoint = NSPoint.zero
     var dragged = false
     init(label: String, icon: NSImage? = nil, size: CGFloat) {
@@ -88,16 +90,7 @@ final class BubbleView: NSView {
         transform.translateX(by: bounds.midX, yBy: bounds.midY)
         transform.scale(by: scale)
         transform.translateX(by: -bounds.midX, yBy: -bounds.midY); transform.concat()
-        if isAddButton {
-            let circle = NSBezierPath(ovalIn: bounds.insetBy(dx:12,dy:12))
-            drawSoftShadow(under:circle,blur:5,offset:-1.5)
-            NSColor(calibratedWhite:0.97,alpha:1).setFill();circle.fill()
-            let plus = NSBezierPath()
-            plus.move(to:NSPoint(x:bounds.midX-7,y:bounds.midY));plus.line(to:NSPoint(x:bounds.midX+7,y:bounds.midY))
-            plus.move(to:NSPoint(x:bounds.midX,y:bounds.midY-7));plus.line(to:NSPoint(x:bounds.midX,y:bounds.midY+7))
-            NSColor(calibratedRed:0.26,green:0.32,blue:0.44,alpha:1).setStroke()
-            plus.lineWidth=2.2;plus.lineCapStyle = .round;plus.stroke()
-        } else if let icon = resolvedIcon {
+        if let icon = resolvedIcon {
             let circle = NSBezierPath(ovalIn: bounds.insetBy(dx: 12, dy: 12))
             drawSoftShadow(under: circle, blur: 5, offset: -1.5)
             NSGraphicsContext.saveGraphicsState()
@@ -190,10 +183,20 @@ final class BubbleView: NSView {
             }
         }
     }
-    override func mouseDown(with event: NSEvent) { lastPoint = NSEvent.mouseLocation; dragged = false }
+    override func mouseDown(with event: NSEvent) {
+        lastPoint = NSEvent.mouseLocation; pressPoint = lastPoint; dragged = false
+        if let frame = window?.frame { pressCentre = NSPoint(x: frame.midX, y: frame.midY) }
+    }
     override func mouseDragged(with event: NSEvent) {
-        guard move != nil else { return }
         let point = NSEvent.mouseLocation
+        if let dragTo = dragTo {
+            let dx = point.x-pressPoint.x, dy = point.y-pressPoint.y
+            guard dragged || hypot(dx,dy) >= 5 else { return }
+            dragged = true
+            dragTo(NSPoint(x: pressCentre.x+dx, y: pressCentre.y+dy))
+            return
+        }
+        guard move != nil else { return }
         let dx = point.x-lastPoint.x, dy = point.y-lastPoint.y
         if abs(dx)+abs(dy) > 1 { dragged = true }
         move?(dx,dy); lastPoint = point
@@ -208,9 +211,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var anchor = NSPoint(x: 160, y: 350)
     var expanded = true
     var iconPanels: [BubblePanel] = []
-    var addPanel: BubblePanel?
-    var orbitRadius: CGFloat { max(82, CGFloat(apps.count+1)*8.5) }
-    func appAngle(_ index: Int) -> CGFloat { -.pi/2 + CGFloat(index+1)*2 * .pi/CGFloat(apps.count+1) }
+    var orbitRadius: CGFloat { 82 }
+    func appAngle(_ index: Int) -> CGFloat { .pi/2 - CGFloat(index)*2 * .pi/CGFloat(max(1, apps.count)) }
+    var draggingApp: String?
+    var draggingAngle: CGFloat?
     var iconProgress: [CGFloat] = []
     var animation: Timer?
     var animationStarts: [CGFloat] = []
@@ -238,7 +242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func clamp() {
         let screen = NSScreen.screens.first { $0.visibleFrame.contains(anchor) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
-        let margin: CGFloat = orbitRadius + 35
+        let margin: CGFloat = expanded && !apps.isEmpty ? 117 : 52
         anchor.x = max(frame.minX+margin, min(anchor.x, frame.maxX-margin))
         anchor.y = max(frame.minY+margin, min(anchor.y, frame.maxY-margin))
     }
@@ -254,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func rebuild() {
         animation?.invalidate(); animation = nil
+        draggingApp = nil; draggingAngle = nil
         panels.forEach { $0.close() }; panels.removeAll(); appViews.removeAll(); iconPanels.removeAll()
         iconProgress = Array(repeating: expanded ? 1 : 0, count: apps.count)
         let centre = BubbleView(label: "My AI Bubble", size: 96)
@@ -278,28 +283,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
                 let view = BubbleView(label: name, icon: NSWorkspace.shared.icon(forFile: path), size: 54)
                 view.action = { [weak self] in self?.launch(path) }
+                view.toolTip = "\(name) • Click to open • Drag around the centre to reorder"
+                view.dragTo = { [weak self] point in self?.reorderApp(path, toward: point) }
+                view.finishMove = { [weak self] in self?.finishReordering() }
                 appViews[path] = view
                 let satellite = panel(view: view, centre: point)
                 panels.append(satellite); iconPanels.append(satellite)
             }
         }
-        let addView = BubbleView(label: "Add an AI app", icon: NSImage(size: NSSize(width:32,height:32)), size:54)
-        addView.isAddButton = true
-        addView.action = { [weak self] in self?.addApp() }
-        let add = panel(view:addView,centre:NSPoint(x:anchor.x,y:anchor.y-orbitRadius))
-        addPanel = add;panels.append(add)
         layoutIcons()
         panels.first?.orderFrontRegardless()
         status?.menu = makeMenu()
     }
     func layoutIcons() {
         panels.first?.setFrameOrigin(NSPoint(x: anchor.x-48, y: anchor.y-48))
-        if let add = addPanel {
-            add.setFrameOrigin(NSPoint(x:anchor.x-add.frame.width/2,y:anchor.y-orbitRadius-add.frame.height/2))
-        }
         for (index, panel) in iconPanels.enumerated() {
             let progress = iconProgress[index]
-            let angle = appAngle(index)
+            let angle = apps[index] == draggingApp ? (draggingAngle ?? appAngle(index)) : appAngle(index)
             let distance: CGFloat = reducedMotion ? orbitRadius : orbitRadius * progress
             panel.setFrameOrigin(NSPoint(x: anchor.x+distance*cos(angle)-panel.frame.width/2, y: anchor.y+distance*sin(angle)-panel.frame.height/2))
             panel.alphaValue = progress
@@ -311,6 +311,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let core = panels.first { panel.order(.below, relativeTo: core.windowNumber) }
             }
         }
+    }
+    func reorderApp(_ path: String, toward point: NSPoint) {
+        guard expanded, let source = apps.firstIndex(of: path) else { return }
+        let dx = point.x-anchor.x, dy = point.y-anchor.y
+        // Avoid unstable angles if the pointer crosses the centre.
+        guard hypot(dx,dy) > 20 else { return }
+        animation?.invalidate(); animation = nil
+        iconProgress = Array(repeating: 1, count: apps.count)
+        draggingApp = path; draggingAngle = atan2(dy,dx)
+        let turn = 2 * CGFloat.pi
+        let clockwise = (CGFloat.pi/2-draggingAngle!+turn).truncatingRemainder(dividingBy: turn)
+        let target = Int((clockwise/turn*CGFloat(apps.count)).rounded()) % apps.count
+        if source != target {
+            let app = apps.remove(at: source); apps.insert(app, at: target)
+            let panel = iconPanels.remove(at: source); iconPanels.insert(panel, at: target)
+        }
+        layoutIcons()
+        iconPanels[target].orderFrontRegardless()
+    }
+    func finishReordering() {
+        guard draggingApp != nil else { return }
+        draggingApp = nil; draggingAngle = nil
+        layoutIcons(); save()
+        status?.menu = makeMenu()
     }
     func advanceAnimation(at now: TimeInterval) {
         let elapsed = now-animationBegan
