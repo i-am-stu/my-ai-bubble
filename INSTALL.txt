@@ -1,5 +1,10 @@
 MY AI BUBBLE
 
+Download the Mac installer:
+https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.dmg
+
+Open the downloaded DMG, then follow the steps below.
+
 Requires macOS 13 Ventura or later. Includes Apple silicon and Intel versions.
 
 1. Drag My AI Bubble.app to Applications.

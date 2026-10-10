@@ -4,7 +4,11 @@ Created by [Stu Collett](https://github.com/i-am-stu). A small personal project 
 
 A small floating launcher for the AI apps on your Mac. Add your apps, move the bubble wherever it suits you, and click an app bubble to bring its window forward.
 
-[**Download for Mac**](https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.dmg) · [All releases](https://github.com/i-am-stu/my-ai-bubble/releases) · [Report an issue](https://github.com/i-am-stu/my-ai-bubble/issues)
+## [Download My AI Bubble for Mac (.dmg)](https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.dmg)
+
+**Click the link above to download the ready-to-install app.** The installer lives under [Releases](https://github.com/i-am-stu/my-ai-bubble/releases/latest), rather than in the source-code folders above. You do not need to download or build the code.
+
+[All releases](https://github.com/i-am-stu/my-ai-bubble/releases) · [Report an issue](https://github.com/i-am-stu/my-ai-bubble/issues)
 
 ![My AI Bubble with Stu’s current app setup](docs/preview.png)
 
@@ -12,7 +16,7 @@ A small floating launcher for the AI apps on your Mac. Add your apps, move the b
 
 Requires **macOS 13 Ventura or later**. The download includes both **Apple silicon and Intel** builds. No developer tools are needed to use it.
 
-1. Download **My-AI-Bubble.dmg** and double-click it to open.
+1. [**Click here to download My-AI-Bubble.dmg**](https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.dmg), then double-click the downloaded file to open it.
 2. Drag **My AI Bubble** onto the **Applications** shortcut in the disk image, then eject the disk image.
 3. Open it, then right-click the **centre bubble** and choose **Add an AI app…** to add your apps.
 
