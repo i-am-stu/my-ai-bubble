@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>My AI Bubble</string>
+	<key>CFBundleExecutable</key>
+	<string>MyAIBubble</string>
+	<key>CFBundleIconFile</key>
+	<string>MyAIBubble</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.stucollett.myai</string>
+	<key>CFBundleName</key>
+	<string>My AI Bubble</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.21.0</string>
+	<key>CFBundleVersion</key>
+	<string>22</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Stu Collett</string>
+</dict>
+</plist>

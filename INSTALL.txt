@@ -1,0 +1,24 @@
+MY AI BUBBLE
+
+Requires macOS 13 Ventura or later. Includes Apple silicon and Intel versions.
+
+1. Drag My AI Bubble.app to Applications.
+2. Open it from Applications or Spotlight.
+3. Right-click the central bubble to add your AI apps.
+
+FIRST OPEN
+This early release is locally signed, but not Developer ID signed or notarised by Apple. macOS may block the first launch.
+If you trust this download, after attempting to open it go to System Settings > Privacy & Security > Open Anyway, then confirm Open. Managed Macs may not allow this exception.
+Apple's guidance: https://support.apple.com/102445
+Do not disable Gatekeeper or your Mac's security protections.
+
+USE
+Drag the centre bubble to move it. Click it to fold or unfold the app bubbles. Click an app bubble to open the app or bring its window forward. Right-click for add, remove and quit. The menu-bar icon has the same controls.
+
+The apps must already be installed on your Mac. My AI Bubble does not include AI services, subscriptions or notification monitoring.
+
+START AT LOGIN
+Add My AI Bubble in System Settings > General > Login Items.
+
+UNINSTALL
+Quit from the bubble's right-click menu, then move My AI Bubble.app from Applications to the Bin. Remove its Login Item if you added one.
