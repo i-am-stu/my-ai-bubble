@@ -16,6 +16,19 @@ Requires **macOS 13 Ventura or later**. The download includes both **Apple silic
 
 **First-open warning:** this early release is locally signed, but is **not Developer ID signed or notarised by Apple**. macOS may block it. If you trust the download, try opening it, then use **System Settings → Privacy & Security → Open Anyway** and confirm. Some managed Macs do not permit this. [Apple’s guidance](https://support.apple.com/102445). There is no need to disable Gatekeeper or run a security-bypass command.
 
+## First-time setup: add your apps
+
+**My AI Bubble is a launcher. It does not install or include ChatGPT, Claude or other AI apps.** Install the native Mac apps you want to use first. Their accounts and subscriptions are separate. A website open in a browser tab will not appear automatically as an app bubble.
+
+If none of the recognised apps are installed, you will see **just the centre bubble**. That is normal. Add an installed app like this:
+
+1. **Right-click the centre bubble** to open its menu. On a trackpad, click with two fingers. You can also hold **Control** and click.
+2. Choose **Add an app…**.
+3. Select the app from your Mac’s **Applications** folder, then click **Open**.
+4. Its bubble appears around the centre. Click it to launch the app or bring its window forward.
+
+Repeat for your other apps, up to ten. You can also use the **◎ icon in the Mac menu bar** to find **Add an app…**. Common installed AI apps may already appear automatically.
+
 ## Use
 
 - **Drag the centre bubble** to move the group.
