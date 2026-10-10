@@ -56,6 +56,28 @@ assert(test.apps == test.defaults.stringArray(forKey:"apps"))
 test.apps = ["/A.app"]; test.rebuild(); dragToSlot("/A.app",0); test.finishReordering()
 assert(test.apps == ["/A.app"])
 test.panels.forEach { $0.close() }
+// Reject invalid persisted launch targets and invalid geometry without crashing.
+let calculator = "/System/Applications/Calculator.app"
+assert(test.validApplication(calculator))
+assert(!test.validApplication("https://example.com/Fake.app"))
+assert(!test.validApplication("/bin/sh"))
+assert(!test.validApplication("/missing/Fake.app"))
+assert(test.validatedApps([calculator, calculator, "/bin/sh"]) == [calculator])
+let fixture = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+try FileManager.default.createDirectory(at: fixture, withIntermediateDirectories:true)
+defer { try? FileManager.default.removeItem(at:fixture) }
+var candidates: [String] = []
+for index in 0..<12 {
+    let url = fixture.appendingPathComponent("Test\(index).app")
+    try FileManager.default.createSymbolicLink(at:url, withDestinationURL:URL(fileURLWithPath:calculator))
+    candidates.append(url.path)
+}
+assert(test.validatedApps(candidates).count == 10)
+test.anchor = NSPoint(x:CGFloat.nan, y:CGFloat.infinity); test.clamp()
+assert(test.anchor.x.isFinite && test.anchor.y.isFinite)
+let invalidRemoval = NSMenuItem(); invalidRemoval.tag = -1
+let beforeRemoval = test.apps; test.removeApp(invalidRemoval)
+assert(test.apps == beforeRemoval)
 assert(BubbleView.coreArtwork != nil, "Artwork resource missing")
 assert(BubbleView.glassBase != nil, "Core Image setup failed")
 let menuTitles = test.makeMenu().items.map { $0.title }.joined(separator: " ").lowercased()

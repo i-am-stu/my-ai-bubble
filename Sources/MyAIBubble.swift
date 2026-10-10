@@ -198,7 +198,7 @@ final class BubbleView: NSView {
         }
         guard move != nil else { return }
         let dx = point.x-lastPoint.x, dy = point.y-lastPoint.y
-        if abs(dx)+abs(dy) > 1 { dragged = true }
+        if hypot(point.x-pressPoint.x, point.y-pressPoint.y) > 1 { dragged = true }
         move?(dx,dy); lastPoint = point
     }
     override func mouseUp(with event: NSEvent) { if dragged { finishMove?() } else { action?() } }
@@ -230,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let initial = names.compactMap { name in
             roots.map { $0.appendingPathComponent(name + ".app").path }.first { FileManager.default.fileExists(atPath: $0) }
         }
-        apps = (defaults.stringArray(forKey: "apps") ?? initial).filter { FileManager.default.fileExists(atPath: $0) }
+        apps = validatedApps(defaults.stringArray(forKey: "apps") ?? initial)
         if defaults.object(forKey: "x") != nil { anchor = NSPoint(x: defaults.double(forKey: "x"), y: defaults.double(forKey: "y")) }
         clamp(); rebuild()
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -239,7 +239,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.menu = makeMenu()
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged), name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
+    // Preferences are local data, not instructions to open arbitrary files or URLs.
+    func validApplication(_ path: String) -> Bool {
+        guard path.hasPrefix("/"), URL(fileURLWithPath: path).pathExtension.lowercased() == "app",
+              let bundle = Bundle(path: path),
+              bundle.object(forInfoDictionaryKey: "CFBundlePackageType") as? String == "APPL",
+              let executable = bundle.executableURL else { return false }
+        return FileManager.default.isExecutableFile(atPath: executable.path)
+    }
+    func validatedApps(_ paths: [String]) -> [String] {
+        var seen = Set<String>()
+        return Array(paths.filter { validApplication($0) && seen.insert($0).inserted }.prefix(10))
+    }
     func clamp() {
+        if !anchor.x.isFinite || !anchor.y.isFinite { anchor = NSPoint(x: 160, y: 350) }
         let screen = NSScreen.screens.first { $0.visibleFrame.contains(anchor) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
         let margin: CGFloat = expanded && !apps.isEmpty ? 117 : 52
@@ -353,6 +366,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if complete { animation?.invalidate(); animation = nil }
     }
     func launch(_ path: String) {
+        guard apps.contains(path), validApplication(path) else {
+            let alert = NSAlert(); alert.messageText = "This app is no longer available"
+            alert.informativeText = "Remove its bubble and add the installed app again from the centre bubble’s menu."
+            NSApp.activate(ignoringOtherApps: true); alert.runModal(); return
+        }
         let config = NSWorkspace.OpenConfiguration(); config.activates = true
         NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: config) { _,error in
             if let error = error { DispatchQueue.main.async { let alert = NSAlert(); alert.messageText = "Couldn’t open this app"; alert.informativeText = error.localizedDescription; alert.runModal() } }
@@ -399,9 +417,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let picker = NSOpenPanel(); picker.title = "Choose an AI app for My AI Bubble"; picker.directoryURL = URL(fileURLWithPath: "/Applications")
         picker.allowedContentTypes = [.applicationBundle]; picker.allowsMultipleSelection = false; picker.canChooseDirectories = false
         NSApp.activate(ignoringOtherApps: true)
-        if picker.runModal() == .OK, let url = picker.url, !apps.contains(url.path), apps.count < 10 { apps.append(url.path); expanded = true; clamp(); save(); rebuild() }
+        if picker.runModal() == .OK, let url = picker.url, validApplication(url.path), !apps.contains(url.path), apps.count < 10 { apps.append(url.path); expanded = true; clamp(); save(); rebuild() }
     }
-    @objc func removeApp(_ sender: NSMenuItem) { apps.remove(at: sender.tag); save(); rebuild() }
+    @objc func removeApp(_ sender: NSMenuItem) {
+        guard apps.indices.contains(sender.tag) else { return }
+        apps.remove(at: sender.tag); save(); rebuild()
+    }
     @objc func quit() { NSApp.terminate(nil) }
 }
 let app = NSApplication.shared

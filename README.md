@@ -1,5 +1,7 @@
 # My AI Bubble
 
+Created by [Stu Collett](https://github.com/i-am-stu). A small personal project to keep the AI apps I use within reach.
+
 A small floating launcher for the AI apps on your Mac. Add your apps, move the bubble wherever it suits you, and click an app bubble to bring its window forward.
 
 [**Download for Mac**](https://github.com/i-am-stu/my-ai-bubble/releases/latest/download/My-AI-Bubble.dmg) · [All releases](https://github.com/i-am-stu/my-ai-bubble/releases) · [Report an issue](https://github.com/i-am-stu/my-ai-bubble/issues)
@@ -46,6 +48,8 @@ To launch at login, add My AI Bubble in **System Settings → General → Login 
 A native Mac launcher with an animated glass bubble, circular app icons and sequential open/close animations. It floats above normal windows and follows you between desktops. Animations respect the macOS Reduce Motion setting.
 
 It does not read chats, monitor notifications, send data, or require Accessibility permission. There are no accounts, analytics or background network services. Your existing AI apps run independently and keep their own subscriptions and settings.
+
+Your selected app paths, order and bubble position are stored locally in macOS preferences. The app is not sandboxed; only add apps you trust. See [security and privacy](SECURITY.md) and the [release review](docs/REVIEW.md) for scope and known limitations.
 
 ## Build from source
 

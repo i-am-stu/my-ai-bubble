@@ -10,6 +10,7 @@ done
 xcrun lipo -create "$BUILD/arm64/MyAIBubble" "$BUILD/x86_64/MyAIBubble" -output "$APP/Contents/MacOS/MyAIBubble"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/BubbleArtwork.png" "$ROOT/Resources/MyAIBubble.icns" "$APP/Contents/Resources/"
+cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 codesign --force --sign - "$APP"
 codesign --verify --strict "$APP"
 printf 'Built: %s\n' "$APP"
