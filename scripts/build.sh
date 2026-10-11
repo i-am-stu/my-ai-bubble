@@ -11,6 +11,10 @@ xcrun lipo -create "$BUILD/arm64/MyAIBubble" "$BUILD/x86_64/MyAIBubble" -output 
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/Resources/BubbleArtwork.png" "$ROOT/Resources/MyAIBubble.icns" "$APP/Contents/Resources/"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
-codesign --force --sign - "$APP"
+if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
+  codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "$APP"
+else
+  codesign --force --sign - "$APP"
+fi
 codesign --verify --strict "$APP"
 printf 'Built: %s\n' "$APP"

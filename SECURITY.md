@@ -16,7 +16,7 @@ Deleting the app does not automatically delete its local preferences. There is n
 
 ## Downloads
 
-Use releases from https://github.com/i-am-stu/my-ai-bubble/releases. SHA-256 checksums help check file integrity; they do not independently establish the publisher’s identity. Current builds use ad-hoc signing, not Apple Developer ID signing or notarisation. Do not disable macOS security protections to install them.
+Use releases from https://github.com/i-am-stu/my-ai-bubble/releases. SHA-256 checksums help check file integrity; they do not independently establish the publisher’s identity. Version 1.26.1 is Developer ID signed and notarised by Apple, with stapled tickets. Older releases and default local builds use ad-hoc signing. Do not disable macOS security protections to install them.
 
 ## Reporting a problem
 

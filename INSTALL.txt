@@ -16,10 +16,9 @@ Requires macOS 13 Ventura or later. Includes Apple silicon and Intel versions.
 If you only see the centre bubble, that is normal: add your installed apps using the steps above. You can also use the ◎ menu-bar icon to find Add an AI app….
 
 FIRST OPEN
-This early release is locally signed, but not Developer ID signed or notarised by Apple. macOS may block the first launch.
-If you trust this download, after attempting to open it go to System Settings > Privacy & Security > Open Anyway, then confirm Open. Managed Macs may not allow this exception.
+Version 1.26.1 is signed with Developer ID Application: Stuart Collett and notarised by Apple. macOS may ask you to confirm opening an app downloaded from the internet; choose Open.
+If you see an unverified-developer or malware-verification warning, check that you downloaded the latest release from the official repository. Do not disable Gatekeeper or your Mac's security protections.
 Apple's guidance: https://support.apple.com/102445
-Do not disable Gatekeeper or your Mac's security protections.
 
 USE
 Drag the centre bubble to move it. Drag an app bubble around the centre to reorder your apps; your order is saved automatically. Click it to fold or unfold the app bubbles. Click an app bubble to open the app or bring its window forward. Right-click for add, remove and quit. The menu-bar icon has the same controls.

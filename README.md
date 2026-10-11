@@ -20,7 +20,7 @@ Requires **macOS 13 Ventura or later**. The download includes both **Apple silic
 2. Drag **My AI Bubble** onto the **Applications** shortcut in the disk image, then eject the disk image.
 3. Open it, then right-click the **centre bubble** and choose **Add an AI app…** to add your apps.
 
-**First-open warning:** this early release is locally signed, but is **not Developer ID signed or notarised by Apple**. macOS may block it. If you trust the download, try opening it, then use **System Settings → Privacy & Security → Open Anyway** and confirm. Some managed Macs do not permit this. [Apple’s guidance](https://support.apple.com/102445). There is no need to disable Gatekeeper or run a security-bypass command.
+**Apple-verified download:** version 1.26.1 is signed with Stuart Collett’s Developer ID and notarised by Apple. macOS may still ask you to confirm opening an app downloaded from the internet; choose **Open**. You should not need a security override. If you see an unverified-app warning, check that you downloaded the latest release.
 
 ## First-time setup: add your apps
 
@@ -83,7 +83,7 @@ The app uses Swift, AppKit and Core Image. This version was tested on an Apple s
 
 ## Distribution
 
-Release downloads use local ad-hoc signing. For a smoother public install, a maintainer with an Apple Developer account should Developer ID sign the app, notarise it and staple Apple’s ticket before packaging. [Apple’s distribution guide](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+Version 1.26.1 is Developer ID signed and notarised, with Apple’s tickets stapled to both the app and DMG. Earlier releases were ad-hoc signed. Local builds still use ad-hoc signing unless a Developer ID identity is provided. Notarisation checks for known malicious content; it is not a guarantee of bug-free or risk-free software. [Apple’s distribution guide](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
 App logos are read from apps installed on the user’s Mac. The product names and logos in the preview belong to their respective owners. My AI Bubble is an independent launcher and is not affiliated with those services.
 
