@@ -2,6 +2,7 @@
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let test = AppDelegate()
+test.defaults.removePersistentDomain(forName:"local.myaibubble.behaviour-tests")
 test.defaults.set(false,forKey:"soundsEnabled")
 for count in [0, 1, 6, 10] {
     test.apps = Array(repeating: "/System/Applications/Calculator.app", count: count)
@@ -146,6 +147,33 @@ assert(UsageTracker.activeSeconds(elapsed:2,idle:70) == 0)
 assert(UsageTracker.activeSeconds(elapsed:300,idle:0) == 0)
 tracker.clear(); assert(tracker.weekly().isEmpty)
 usageDefaults.removePersistentDomain(forName:"local.myaibubble.usage-tests")
+test.apps = ["/A.app", "/B.app"]; test.expanded = true
+let smallChoice = NSMenuItem(); smallChoice.tag = 1; test.setBubbleSize(smallChoice)
+assert(test.panels[0].frame.width == 72 && test.iconPanels[0].frame.width == 53)
+assert(test.panels[0].contentView!.bounds.width == 96)
+assert(test.orbitRadius == 61.5)
+let smallCore = test.panels[0].contentView as! BubbleView
+smallCore.move?(8,6); let smallFrames = test.panels.map { $0.frame }; smallCore.finishMove?()
+assert(test.panels.map { $0.frame } == smallFrames)
+smallChoice.tag = 0; test.setBubbleSize(smallChoice)
+assert(test.panels[0].frame.width == 96 && test.orbitRadius == 82)
+// Each visible edge stays within one point of the same 10-point gap.
+if let screen = NSScreen.main {
+    for small in [false, true] {
+        test.defaults.set(small,forKey:"smallBubbles")
+        for count in [0,1,3,7,10] {
+            test.apps = Array(repeating:"/A.app",count:count)
+            let frame = screen.visibleFrame
+            for corner in [NSPoint(x:frame.minX,y:frame.minY), NSPoint(x:frame.maxX-1,y:frame.maxY-1)] {
+                test.anchor = corner; test.clamp()
+                let bounds = test.visibleBubbleBounds.offsetBy(dx:test.anchor.x,dy:test.anchor.y)
+                let gaps = corner.x == frame.minX ? [bounds.minX-frame.minX,bounds.minY-frame.minY] : [frame.maxX-bounds.maxX,frame.maxY-bounds.maxY]
+                assert(gaps.allSatisfy { $0 >= 9.99 && $0 < 11.01 })
+            }
+        }
+    }
+}
+test.panels.forEach { $0.close() }
 let image = NSImage(size: NSSize(width: 480, height: 320))
 image.lockFocus()
 NSColor(calibratedRed:0.94,green:0.96,blue:0.99,alpha:1).setFill()

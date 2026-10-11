@@ -260,7 +260,7 @@ final class BubbleView: NSView {
         let displaced = shape.copy() as! NSBezierPath
         let transform = NSAffineTransform(); transform.translateX(by: shift, yBy: 0)
         displaced.transform(using: transform as AffineTransform)
-        context.setShadow(offset: CGSize(width: -shift, height: offset), blur: blur,
+        context.setShadow(offset: CGSize(width: -shift * frame.width/bounds.width, height: offset * frame.width/bounds.width), blur: blur * frame.width/bounds.width,
                           color: NSColor.black.withAlphaComponent(opacity).cgColor)
         NSColor.black.setFill(); displaced.fill()
         NSGraphicsContext.restoreGraphicsState()
@@ -362,7 +362,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var dragAnchor: NSPoint?
     var expanded = true
     var iconPanels: [BubblePanel] = []
-    var orbitRadius: CGFloat { 82 }
+    var bubbleScale: CGFloat { defaults.bool(forKey:"smallBubbles") ? 0.75 : 1 }
+    var orbitRadius: CGFloat { 82 * bubbleScale }
     func appAngle(_ index: Int) -> CGFloat { .pi/2 - CGFloat(index)*2 * .pi/CGFloat(max(1, apps.count)) }
     var draggingApp: String?
     var draggingAngle: CGFloat?
@@ -444,18 +445,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var seen = Set<String>()
         return Array(paths.filter { validApplication($0) && seen.insert($0).inserted }.prefix(10))
     }
+    // Visible artwork bounds relative to the shared centre, excluding transparent
+    // window padding. Use the same desktop gap at every edge, including the Dock.
+    var visibleBubbleBounds: NSRect {
+        var rect = NSRect(x:-36, y:-36, width:72, height:72)
+        if expanded {
+            for index in apps.indices {
+                let angle = appAngle(index)
+                rect = rect.union(NSRect(x:82*cos(angle)-23, y:82*sin(angle)-23, width:46, height:46))
+            }
+        }
+        return NSRect(x:rect.minX*bubbleScale, y:rect.minY*bubbleScale,
+                      width:rect.width*bubbleScale, height:rect.height*bubbleScale)
+    }
     func clamp() {
-        if !anchor.x.isFinite || !anchor.y.isFinite { anchor = NSPoint(x: 160, y: 350) }
-        let screen = NSScreen.screens.first { $0.visibleFrame.contains(anchor) } ?? NSScreen.main
+        if !anchor.x.isFinite || !anchor.y.isFinite { anchor = NSPoint(x:160, y:350) }
+        let screen = NSScreen.screens.first { $0.frame.contains(anchor) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
-        let margin: CGFloat = expanded && !apps.isEmpty ? 117 : 52
-        anchor.x = max(frame.minX+margin, min(anchor.x, frame.maxX-margin))
-        anchor.y = max(frame.minY+margin, min(anchor.y, frame.maxY-margin))
+        let bounds = visibleBubbleBounds
+        let gap: CGFloat = 10
+        anchor.x = max(ceil(frame.minX+gap-bounds.minX), min(anchor.x.rounded(), floor(frame.maxX-gap-bounds.maxX)))
+        anchor.y = max(ceil(frame.minY+gap-bounds.minY), min(anchor.y.rounded(), floor(frame.maxY-gap-bounds.maxY)))
     }
     func save() { defaults.set(anchor.x, forKey: "x"); defaults.set(anchor.y, forKey: "y"); defaults.set(apps, forKey: "apps") }
     func panel(view: BubbleView, centre: NSPoint) -> BubblePanel {
-        let size = view.frame.width
-        let panel = BubblePanel(contentRect: NSRect(x: centre.x-size/2, y: centre.y-size/2, width: size, height: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let drawingSize = view.bounds.size
+        let size = view.frame.width * bubbleScale
+        let panel = BubblePanel(contentRect: NSRect(x: (centre.x-size/2).rounded(), y: (centre.y-size/2).rounded(), width: size, height: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         // Movement belongs exclusively to our mouse handlers. Native window dragging
         // can trigger macOS edge tiling and relocate the centre independently.
         panel.isMovable = false
@@ -469,6 +485,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.minSize = panel.frame.size
         panel.maxSize = panel.frame.size
         panel.isReleasedWhenClosed = false; panel.contentView = view
+        view.setFrameSize(NSSize(width:size,height:size))
+        view.setBoundsSize(drawingSize)
         panel.orderFrontRegardless(); return panel
     }
     func rebuild() {
@@ -546,7 +564,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         core.displayIfNeeded()
     }
     func layoutIcons() {
-        panels.first?.place(at:NSPoint(x: anchor.x-48, y: anchor.y-48))
+        panels.first?.place(at:NSPoint(x: anchor.x-48*bubbleScale, y: anchor.y-48*bubbleScale))
         for (index, panel) in iconPanels.enumerated() {
             let progress = iconProgress[index]
             let angle = apps[index] == draggingApp ? (draggingAngle ?? appAngle(index)) : appAngle(index)
@@ -635,6 +653,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for (index,path) in apps.enumerated() { let entry = item(URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent, #selector(removeApp(_:)), in: submenu); entry.tag = index }
         remove.submenu = submenu; menu.addItem(remove)
         menu.addItem(.separator())
+        let sizeItem = NSMenuItem(title:"Bubble size",action:nil,keyEquivalent:"")
+        let sizes = NSMenu()
+        for (title, tag) in [("Normal",0),("Small (75%)",1)] {
+            let choice = item(title,#selector(setBubbleSize(_:)),in:sizes)
+            choice.tag = tag
+            choice.state = (defaults.bool(forKey:"smallBubbles") == (tag == 1)) ? .on : .off
+        }
+        sizeItem.submenu = sizes; menu.addItem(sizeItem)
         let soundItem = item("Sound effects", #selector(toggleSounds), in:menu)
         soundItem.state = soundsEnabled ? .on : .off
         menu.addItem(.separator())
@@ -642,6 +668,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = item("About My AI Bubble…", #selector(showAbout), in: menu)
         _ = item("Quit My AI Bubble", #selector(quit), in: menu)
         return menu
+    }
+    @objc func setBubbleSize(_ sender: NSMenuItem) {
+        defaults.set(sender.tag == 1,forKey:"smallBubbles")
+        clamp(); rebuild(); save()
     }
     @objc func showUsage() {
         sampleUsage(); usage.save()
