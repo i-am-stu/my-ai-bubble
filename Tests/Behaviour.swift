@@ -199,6 +199,7 @@ func drawPreview(_ view: BubbleView, _ center: NSPoint) {
     view.draw(view.bounds); NSGraphicsContext.restoreGraphicsState()
 }
 let core = BubbleView(label:"My AI Bubble",size:96);core.previewTime=0
+assert(abs((core.bounds.width-2*core.artworkInset)/46 - 4.0/3.0) < 0.001)
 drawPreview(core,NSPoint(x:240,y:160))
 let names = ["ChatGPT", "Claude", "Granola", "Perplexity", "superwhisper", "Muse"]
 for (index,name) in names.enumerated() {

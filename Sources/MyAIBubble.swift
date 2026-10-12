@@ -130,6 +130,9 @@ final class BubblePanel: NSPanel, NSWindowDelegate {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 final class BubbleView: NSView {
+    // Centre artwork is one-third larger than the 46-point app circles.
+    static let centreDiameter: CGFloat = 46 * 4 / 3
+    var artworkInset: CGFloat { icon == nil ? (bounds.width-Self.centreDiameter)/2 : 12 }
     let label: String
     let icon: NSImage?
     static let coreArtwork: NSImage? = {
@@ -231,7 +234,7 @@ final class BubbleView: NSView {
         defer { NSGraphicsContext.restoreGraphicsState() }
         let scale: CGFloat = icon == nil ? (hovered ? 1.025 : 1) : (0.35 + 0.65 * reveal) * (hovered ? 1.06 : 1)
         // Draw in unscaled window coordinates so hover cannot displace the shadow.
-        let diameter = (bounds.width-24)*scale
+        let diameter = (bounds.width-2*artworkInset)*scale
         let shadowBounds = NSRect(x:bounds.midX-diameter/2, y:bounds.midY-diameter/2, width:diameter, height:diameter)
         drawSoftShadow(under:NSBezierPath(ovalIn:shadowBounds), blur:icon == nil ? 11 : 5,
                        offset:icon == nil ? -2 : -1.5, opacity:icon == nil ? 0.075 : 0.10)
@@ -328,7 +331,7 @@ final class BubbleView: NSView {
                 kCIInputAngleKey: 0.13*sin(t*0.31)])
             glass = glass.applyingFilter("CIHueAdjust", parameters: [kCIInputAngleKey: 0.09*sin(t*0.19)])
         }
-        let destination = bounds.insetBy(dx: 12, dy: 12)
+        let destination = bounds.insetBy(dx: artworkInset, dy: artworkInset)
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         NSBezierPath(ovalIn: destination).addClip()
@@ -468,7 +471,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Visible artwork bounds relative to the shared centre, excluding transparent
     // window padding. Use the same desktop gap at every edge, including the Dock.
     var visibleBubbleBounds: NSRect {
-        var rect = NSRect(x:-36, y:-36, width:72, height:72)
+        let radius = BubbleView.centreDiameter/2
+        var rect = NSRect(x:-radius, y:-radius, width:radius*2, height:radius*2)
         if expanded {
             for index in apps.indices {
                 let angle = appAngle(index)
