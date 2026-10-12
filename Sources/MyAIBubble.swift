@@ -145,12 +145,9 @@ final class BubbleView: NSView {
         NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = context
         icon.draw(in: NSRect(x: 0, y: 0, width: 256, height: 256))
         NSGraphicsContext.restoreGraphicsState()
-        let samples = [(64,64), (192,64), (64,192), (192,192)].compactMap { bitmap.colorAt(x: $0.0, y: $0.1)?.usingColorSpace(.deviceRGB) }
-        if samples.count == 4 {
-            let r = samples.reduce(CGFloat(0)) { $0+$1.redComponent }/4
-            let g = samples.reduce(CGFloat(0)) { $0+$1.greenComponent }/4
-            let b = samples.reduce(CGFloat(0)) { $0+$1.blueComponent }/4
-            let fill = NSColor(deviceRed: r, green: g, blue: b, alpha: 1)
+        let fill = sampledBackground(bitmap)
+        if let colour = fill.usingColorSpace(.deviceRGB) {
+            let r = colour.redComponent, g = colour.greenComponent, b = colour.blueComponent
             // Remove only low-contrast tile shading; retain the contrasting logo.
             for y in 32..<224 { for x in 32..<224 {
                 guard let pixel = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB), pixel.alphaComponent > 0.98 else { continue }
@@ -159,22 +156,45 @@ final class BubbleView: NSView {
                 let paleBackground = min(r,g,b) > 0.80
                 let palePixel = min(pixel.redComponent, pixel.greenComponent, pixel.blueComponent) > 0.80
                 if (colouredBackground && distance < 0.012) || (paleBackground && palePixel && distance < 0.045) {
-                    bitmap.setColor(fill, atX: x, y: y)
+                    var rgba = [Int(r*255),Int(g*255),Int(b*255),255]
+                    bitmap.setPixel(&rgba, atX:x, y:y)
                 }
             } }
         }
         let image = NSImage(size: NSSize(width: 256, height: 256)); image.addRepresentation(bitmap)
         return image
     }()
+    // Sample the perimeter inside the native tile, not four points which may
+    // intersect the logo. Choose the most common colour cluster rather than
+    // averaging unrelated foreground and background pixels into grey.
+    func sampledBackground(_ bitmap: NSBitmapImageRep) -> NSColor {
+        switch label.lowercased() {
+        case "notion": return .white
+        case "grok bot", "grokbot": return .black
+        default: break
+        }
+        var buckets: [Int: (count: Int, r: CGFloat, g: CGFloat, b: CGFloat)] = [:]
+        for y in stride(from:40, through:216, by:4) {
+            for x in stride(from:40, through:216, by:4) {
+                guard x <= 52 || x >= 204 || y <= 52 || y >= 204,
+                      let c = bitmap.colorAt(x:x,y:y)?.usingColorSpace(.deviceRGB),
+                      c.alphaComponent > 0.98 else { continue }
+                let r = c.redComponent, g = c.greenComponent, b = c.blueComponent
+                let key = (Int(r*15)<<8) | (Int(g*15)<<4) | Int(b*15)
+                var bucket = buckets[key] ?? (0,0,0,0)
+                bucket.count += 1; bucket.r += r; bucket.g += g; bucket.b += b
+                buckets[key] = bucket
+            }
+        }
+        guard let winner = buckets.sorted(by: {
+            $0.value.count == $1.value.count ? $0.key < $1.key : $0.value.count > $1.value.count
+        }).first?.value else { return .white }
+        let n = CGFloat(winner.count)
+        return NSColor(deviceRed:winner.r/n,green:winner.g/n,blue:winner.b/n,alpha:1)
+    }
     lazy var iconBackground: NSColor = {
         guard let bitmap = resolvedIcon?.representations.first as? NSBitmapImageRep else { return .white }
-        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0
-        let points = [(64,64), (192,64), (64,192), (192,192)]
-        for (x,y) in points {
-            let colour = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) ?? .white
-            red += colour.redComponent; green += colour.greenComponent; blue += colour.blueComponent
-        }
-        return NSColor(deviceRed: red/4, green: green/4, blue: blue/4, alpha: 1)
+        return sampledBackground(bitmap)
     }()
     var reveal: CGFloat = 1 { didSet { needsDisplay = true } }
     var isActiveApp = false { didSet { if oldValue != isActiveApp { needsDisplay = true } } }

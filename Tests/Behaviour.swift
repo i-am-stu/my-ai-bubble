@@ -174,6 +174,21 @@ if let screen = NSScreen.main {
     }
 }
 test.panels.forEach { $0.close() }
+// A contrasting logo must not turn the sampled tile background grey.
+let tile = NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:256,pixelsHigh:256,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:0,bitsPerPixel:0)!
+let sampler = BubbleView(label:"Example app",size:70)
+for background in [NSColor.white, NSColor.black, NSColor.orange] {
+    for y in 0..<256 { for x in 0..<256 {
+        let c = ((x > 58 && x < 198 && y > 58 && y < 198) ? NSColor.gray : background).usingColorSpace(.deviceRGB)!
+        var pixel = [Int(c.redComponent*255),Int(c.greenComponent*255),Int(c.blueComponent*255),255]
+        tile.setPixel(&pixel,atX:x,y:y)
+    } }
+    let actual = sampler.sampledBackground(tile).usingColorSpace(.deviceRGB)!
+    let expected = background.usingColorSpace(.deviceRGB)!
+    assert(abs(actual.redComponent-expected.redComponent) < 0.01)
+    assert(abs(actual.greenComponent-expected.greenComponent) < 0.01)
+    assert(abs(actual.blueComponent-expected.blueComponent) < 0.01)
+}
 let image = NSImage(size: NSSize(width: 480, height: 320))
 image.lockFocus()
 NSColor(calibratedRed:0.94,green:0.96,blue:0.99,alpha:1).setFill()
