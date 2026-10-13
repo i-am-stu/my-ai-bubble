@@ -553,7 +553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
                 let view = BubbleView(label: name, icon: NSWorkspace.shared.icon(forFile: path), size: 54)
                 view.action = { [weak self] in self?.launch(path) }
-                view.toolTip = "\(name) • Click to open • Drag around the centre to reorder"
+                view.toolTip = "\(name) • Click to show or hide • Drag around the centre to reorder"
                 view.dragTo = { [weak self] point in self?.reorderApp(path, toward: point) }
                 view.finishMove = { [weak self] in self?.finishReordering() }
                 appViews[path] = view
@@ -658,6 +658,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true); alert.runModal(); return
         }
         if soundsEnabled { audio.selectApp() }
+        let targetURL = URL(fileURLWithPath:path).resolvingSymlinksInPath().standardizedFileURL
+        if let active = NSWorkspace.shared.frontmostApplication,
+           active.bundleURL?.resolvingSymlinksInPath().standardizedFileURL == targetURL,
+           !active.isHidden {
+            active.hide()
+            return
+        }
         let config = NSWorkspace.OpenConfiguration(); config.activates = true
         NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: config) { _,error in
             if let error = error { DispatchQueue.main.async { let alert = NSAlert(); alert.messageText = "Couldn’t open this app"; alert.informativeText = error.localizedDescription; alert.runModal() } }
