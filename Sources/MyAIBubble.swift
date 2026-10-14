@@ -672,6 +672,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for (appPath,view) in appViews {
             view.isActiveApp = active == URL(fileURLWithPath:appPath).resolvingSymlinksInPath().standardizedFileURL.path
         }
+        for (index,panel) in iconPanels.enumerated() {
+            panel.alphaValue = iconProgress[index] * appEmphasis(at:index)
+        }
+    }
+    func appEmphasis(at index:Int) -> CGFloat {
+        let hasActive = appViews.values.contains { $0.isActiveApp }
+        return hasActive && appViews[apps[index]]?.isActiveApp != true ? 0.70 : 1
     }
     func refreshCentre() {
         guard let core = panels.first else { return }
@@ -706,7 +713,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let angle = apps[index] == draggingApp ? (draggingAngle ?? appAngle(index)) : appAngle(index)
             let distance: CGFloat = reducedMotion ? orbitRadius : orbitRadius * progress
             panel.place(at:NSPoint(x: anchor.x+distance*cos(angle)-panel.frame.width/2, y: anchor.y+distance*sin(angle)-panel.frame.height/2))
-            panel.alphaValue = progress
+            panel.alphaValue = progress * appEmphasis(at:index)
             panel.ignoresMouseEvents = progress < 0.98
             (panel.contentView as? BubbleView)?.reveal = reducedMotion ? 1 : progress
             if progress < 0.001 { panel.orderOut(nil) }
