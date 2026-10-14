@@ -389,6 +389,21 @@ final class DiscTintView: NSView {
     }
 }
 final class BackgroundDiscView: NSView {
+    var move: ((CGFloat,CGFloat) -> Void)?
+    var finishMove: (() -> Void)?
+    private var lastPoint = NSPoint.zero
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = convert(point,from:superview)
+        return hypot(local.x-bounds.midX,local.y-bounds.midY) <= bounds.width/2-8 ? self : nil
+    }
+    override func mouseDown(with event:NSEvent) { lastPoint = NSEvent.mouseLocation }
+    override func mouseDragged(with event:NSEvent) {
+        let point = NSEvent.mouseLocation
+        move?(point.x-lastPoint.x,point.y-lastPoint.y)
+        lastPoint = point
+    }
+    override func mouseUp(with event:NSEvent) { finishMove?() }
+
     init(size: CGFloat) {
         super.init(frame:NSRect(x:0,y:0,width:size,height:size))
         let glass = NSVisualEffectView(frame:bounds.insetBy(dx:8,dy:8))
@@ -433,6 +448,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var expanded = true
     var iconPanels: [BubblePanel] = []
     var discPanel: BubblePanel?
+    var discHoverTimer: Timer?
+    var discOpacity: CGFloat = 0.65
     var showsDisc: Bool { defaults.object(forKey:"backgroundDisc") == nil || defaults.bool(forKey:"backgroundDisc") }
     var bubbleScale: CGFloat { defaults.bool(forKey:"smallBubbles") ? 0.75 : 1 }
     var baseOrbitRadius: CGFloat { 64 + CGFloat(max(0, apps.count-6))*6 }
@@ -567,7 +584,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func rebuild() {
         animation?.invalidate(); animation = nil
+        discHoverTimer?.invalidate(); discHoverTimer = nil
         discPanel?.close(); discPanel = nil
+        discOpacity = 0.65
         audio.stop()
         draggingApp = nil; draggingAngle = nil
         dragAnchor = nil
@@ -609,6 +628,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.dragAnchor = nil
             self.refreshCentre()
             self.save()
+        }
+        if let background = discPanel?.contentView as? BackgroundDiscView {
+            background.move = centre.move
+            background.finishMove = centre.finishMove
+            background.toolTip = "Drag to move My AI Bubble"
+            let timer = Timer(timeInterval:0.05,repeats:true) { [weak self] _ in self?.updateDiscHover() }
+            discHoverTimer = timer
+            RunLoop.main.add(timer,forMode:.common)
         }
         centre.context = { [weak self] in self?.makeMenu() ?? NSMenu() }
         panels.append(panel(view: centre, centre: anchor))
@@ -653,10 +680,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         core.contentView?.needsDisplay = true
         core.displayIfNeeded()
     }
+    func updateDiscHover() {
+        guard let disc = discPanel else { return }
+        let mouse = NSEvent.mouseLocation
+        let inside = hypot(mouse.x-anchor.x,mouse.y-anchor.y) <= disc.frame.width/2-8
+        let overBubble = panels.contains { $0.isVisible && $0.frame.contains(mouse) }
+        let hovering = inside || overBubble || dragAnchor != nil
+        let target: CGFloat = hovering ? 1 : 0.65
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { discOpacity = target }
+        else { discOpacity += (target-discOpacity)*0.35 }
+        disc.alphaValue = (iconProgress.max() ?? 0)*discOpacity
+        // Transparent rectangular corners must not block the desktop behind them.
+        disc.ignoresMouseEvents = (!inside && dragAnchor == nil) || (iconProgress.max() ?? 0) < 0.98
+    }
     func layoutIcons() {
         if let disc = discPanel {
             disc.place(at:NSPoint(x:anchor.x-disc.frame.width/2,y:anchor.y-disc.frame.height/2))
-            disc.alphaValue = iconProgress.max() ?? 0
+            disc.alphaValue = (iconProgress.max() ?? 0)*discOpacity
             if disc.alphaValue < 0.001 { disc.orderOut(nil) }
             else { disc.orderFrontRegardless() }
         }
