@@ -378,6 +378,53 @@ final class BubbleView: NSView {
     override func menu(for event: NSEvent) -> NSMenu? { context?() }
     override func accessibilityPerformPress() -> Bool { action?(); return true }
 }
+final class DiscTintView: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        let circle = NSBezierPath(ovalIn:bounds)
+        NSGradient(colors:[
+            NSColor(calibratedRed:0.28,green:0.48,blue:0.94,alpha:0.58),
+            NSColor(calibratedRed:0.48,green:0.30,blue:0.85,alpha:0.62),
+            NSColor(calibratedRed:0.66,green:0.42,blue:0.90,alpha:0.54)
+        ])?.draw(in:circle,angle:-45)
+    }
+}
+final class BackgroundDiscView: NSView {
+    init(size: CGFloat) {
+        super.init(frame:NSRect(x:0,y:0,width:size,height:size))
+        let glass = NSVisualEffectView(frame:bounds.insetBy(dx:8,dy:8))
+        glass.material = .hudWindow
+        glass.blendingMode = .behindWindow
+        glass.state = .active
+        glass.wantsLayer = true
+        glass.layer?.cornerRadius = glass.bounds.width/2
+        glass.layer?.masksToBounds = true
+        // Mask the material itself so both blur and tint fade towards the core.
+        let mask = NSImage(size:glass.bounds.size)
+        mask.lockFocus()
+        if let context = NSGraphicsContext.current?.cgContext,
+           let gradient = CGGradient(colorsSpace:CGColorSpaceCreateDeviceRGB(),
+                colors:[NSColor.white.withAlphaComponent(0.06).cgColor,
+                        NSColor.white.withAlphaComponent(0.18).cgColor,
+                        NSColor.white.withAlphaComponent(0.85).cgColor,
+                        NSColor.white.cgColor] as CFArray,
+                locations:[0,0.25,0.72,1]) {
+            let centre = CGPoint(x:glass.bounds.midX,y:glass.bounds.midY)
+            context.drawRadialGradient(gradient,startCenter:centre,startRadius:0,
+                                       endCenter:centre,endRadius:glass.bounds.width/2,options:[])
+        }
+        mask.unlockFocus()
+        glass.maskImage = mask
+        let tint = DiscTintView(frame:glass.bounds)
+        tint.wantsLayer = true
+        let tintMask = CALayer()
+        tintMask.frame = tint.bounds
+        tintMask.contents = mask.cgImage(forProposedRect:nil,context:nil,hints:nil)
+        tint.layer?.mask = tintMask
+        glass.addSubview(tint)
+        addSubview(glass)
+    }
+    required init?(coder:NSCoder) { fatalError() }
+}
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var panels: [BubblePanel] = []
     var apps: [String] = []
@@ -385,8 +432,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var dragAnchor: NSPoint?
     var expanded = true
     var iconPanels: [BubblePanel] = []
+    var discPanel: BubblePanel?
+    var showsDisc: Bool { defaults.object(forKey:"backgroundDisc") == nil || defaults.bool(forKey:"backgroundDisc") }
     var bubbleScale: CGFloat { defaults.bool(forKey:"smallBubbles") ? 0.75 : 1 }
-    var orbitRadius: CGFloat { 82 * bubbleScale }
+    var baseOrbitRadius: CGFloat { 64 + CGFloat(max(0, apps.count-6))*6 }
+    var orbitRadius: CGFloat { baseOrbitRadius * bubbleScale }
+    var discRadius: CGFloat { baseOrbitRadius + 34 }
     func appAngle(_ index: Int) -> CGFloat { .pi/2 - CGFloat(index)*2 * .pi/CGFloat(max(1, apps.count)) }
     var draggingApp: String?
     var draggingAngle: CGFloat?
@@ -476,9 +527,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if expanded {
             for index in apps.indices {
                 let angle = appAngle(index)
-                rect = rect.union(NSRect(x:82*cos(angle)-23, y:82*sin(angle)-23, width:46, height:46))
+                rect = rect.union(NSRect(x:baseOrbitRadius*cos(angle)-23, y:baseOrbitRadius*sin(angle)-23, width:46, height:46))
             }
         }
+        if showsDisc && expanded && !apps.isEmpty { rect = NSRect(x:-discRadius,y:-discRadius,width:discRadius*2,height:discRadius*2) }
         return NSRect(x:rect.minX*bubbleScale, y:rect.minY*bubbleScale,
                       width:rect.width*bubbleScale, height:rect.height*bubbleScale)
     }
@@ -515,11 +567,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func rebuild() {
         animation?.invalidate(); animation = nil
+        discPanel?.close(); discPanel = nil
         audio.stop()
         draggingApp = nil; draggingAngle = nil
         dragAnchor = nil
         panels.forEach { $0.close() }; panels.removeAll(); appViews.removeAll(); iconPanels.removeAll()
         iconProgress = Array(repeating: expanded ? 1 : 0, count: apps.count)
+        if showsDisc && !apps.isEmpty {
+            let size = (discRadius*2+16)*bubbleScale
+            let disc = BubblePanel(contentRect:NSRect(x:anchor.x-size/2,y:anchor.y-size/2,width:size,height:size),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+            disc.isOpaque = false; disc.backgroundColor = .clear; disc.hasShadow = false
+            disc.isMovable = false; disc.isMovableByWindowBackground = false
+            disc.ignoresMouseEvents = true; disc.hidesOnDeactivate = false
+            disc.level = .floating; disc.isReleasedWhenClosed = false
+            disc.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary,.fullScreenDisallowsTiling,.auxiliary]
+            disc.contentView = BackgroundDiscView(size:size)
+            disc.minSize = disc.frame.size; disc.maxSize = disc.frame.size
+            disc.delegate = disc; disc.place(at:disc.frame.origin)
+            discPanel = disc
+        }
         let centre = BubbleView(label: "My AI Bubble", size: 96)
         centre.action = { [weak self] in self?.toggle() }
         centre.move = { [weak self] dx,dy in
@@ -588,6 +654,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         core.displayIfNeeded()
     }
     func layoutIcons() {
+        if let disc = discPanel {
+            disc.place(at:NSPoint(x:anchor.x-disc.frame.width/2,y:anchor.y-disc.frame.height/2))
+            disc.alphaValue = iconProgress.max() ?? 0
+            if disc.alphaValue < 0.001 { disc.orderOut(nil) }
+            else { disc.orderFrontRegardless() }
+        }
         panels.first?.place(at:NSPoint(x: anchor.x-48*bubbleScale, y: anchor.y-48*bubbleScale))
         for (index, panel) in iconPanels.enumerated() {
             let progress = iconProgress[index]
@@ -602,6 +674,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panel.orderFrontRegardless()
                 if let core = panels.first { panel.order(.below, relativeTo: core.windowNumber) }
             }
+        }
+        if let disc = discPanel, disc.isVisible {
+            for bubble in panels where bubble.isVisible { bubble.order(.above,relativeTo:disc.windowNumber) }
         }
     }
     func reorderApp(_ path: String, toward point: NSPoint) {
@@ -692,6 +767,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             choice.state = (defaults.bool(forKey:"smallBubbles") == (tag == 1)) ? .on : .off
         }
         sizeItem.submenu = sizes; menu.addItem(sizeItem)
+        let discItem = item("Show background disc", #selector(toggleDisc), in:menu)
+        discItem.state = showsDisc ? .on : .off
         let soundItem = item("Sound effects", #selector(toggleSounds), in:menu)
         soundItem.state = soundsEnabled ? .on : .off
         menu.addItem(.separator())
@@ -699,6 +776,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = item("About My AI Bubble…", #selector(showAbout), in: menu)
         _ = item("Quit My AI Bubble", #selector(quit), in: menu)
         return menu
+    }
+    @objc func toggleDisc() {
+        defaults.set(!showsDisc,forKey:"backgroundDisc")
+        clamp(); rebuild(); save()
     }
     @objc func setBubbleSize(_ sender: NSMenuItem) {
         defaults.set(sender.tag == 1,forKey:"smallBubbles")

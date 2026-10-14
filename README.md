@@ -20,7 +20,7 @@ Requires **macOS 13 Ventura or later**. The download includes both **Apple silic
 2. Drag **My AI Bubble** onto the **Applications** shortcut in the disk image, then eject the disk image.
 3. Open it, then right-click the **centre bubble** and choose **Add an AI app…** to add your apps.
 
-**Apple-verified download:** version 1.27.3 is signed with Stuart Collett’s Developer ID and notarised by Apple. macOS may still ask you to confirm opening an app downloaded from the internet; choose **Open**. You should not need a security override. If you see an unverified-app warning, check that you downloaded the latest release.
+**Apple-verified download:** version 1.28.0 is signed with Stuart Collett’s Developer ID and notarised by Apple. macOS may still ask you to confirm opening an app downloaded from the internet; choose **Open**. You should not need a security override. If you see an unverified-app warning, check that you downloaded the latest release.
 
 ## First-time setup: add your apps
 
@@ -45,6 +45,7 @@ A subtle multicoloured glow marks the app currently in the foreground. It follow
 - **Click an app bubble** to launch the app or bring it forward. Click it again while that app is active to hide it (all of its windows); the app keeps running.
 - **Right-click the centre bubble** to add or remove apps, bring the bubble into view, or quit.
 - **Bubble size → Small (75%)** reduces the centre bubble, app bubbles and their spacing to 75% of normal. Choose **Normal** to restore the original size. Your choice is saved.
+- **Show background disc** toggles the frosted blue-and-purple backdrop. It follows the bubbles and fades away when folded. Your choice is saved.
 - **Sound effects** in that menu turns the quiet selection, centre-click and opening/closing sounds on or off. Your choice is saved.
 
 The menu-bar icon provides the same controls. App choices and position are remembered. You can add up to ten installed apps. Common AI apps are picked up automatically from Applications on first launch; any other installed app can be added through the menu.
@@ -84,12 +85,16 @@ The app uses Swift, AppKit and Core Image. This version was tested on an Apple s
 
 ## Distribution
 
-Version 1.27.3 is Developer ID signed and notarised, with Apple’s tickets stapled to both the app and DMG. Earlier releases were ad-hoc signed. Local builds still use ad-hoc signing unless a Developer ID identity is provided. Notarisation checks for known malicious content; it is not a guarantee of bug-free or risk-free software. [Apple’s distribution guide](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+Version 1.28.0 is Developer ID signed and notarised, with Apple’s tickets stapled to both the app and DMG. Earlier releases were ad-hoc signed. Local builds still use ad-hoc signing unless a Developer ID identity is provided. Notarisation checks for known malicious content; it is not a guarantee of bug-free or risk-free software. [Apple’s distribution guide](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
 
 App logos are read from apps installed on the user’s Mac. The product names and logos in the preview belong to their respective owners. My AI Bubble is an independent launcher and is not affiliated with those services.
 
 ## Licence
 
-Licensed under the [MIT License](LICENSE). You can use, modify and share the software, including commercially, provided you retain the copyright and licence notice. The software is provided without warranty.
+From version 1.28.0, licensed under [MIT with the Commons Clause v1.0](LICENSE). This is source-available software, not OSI-defined open source. Personal use and internal workplace/business use are allowed. You may modify and share it subject to the full licence and required notices.
+
+The licence does not grant the right to sell a product or service whose value derives entirely or substantially from this software, including commercial repackaging and certain paid hosting, consulting or support services. See the [Commons Clause explanation](https://commonsclause.com/). Contact [Stu Collett](https://www.stucollett.com) about separate commercial permission. The software is provided without warranty.
+
+Versions through 1.27.3 and code previously distributed under MIT retain those MIT permissions. This change does not retroactively restrict previously MIT-licensed code. Third-party rights are unaffected.
 
 Third-party app names and logos remain the property of their respective owners and are not covered by this licence.

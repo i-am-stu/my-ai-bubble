@@ -151,12 +151,12 @@ test.apps = ["/A.app", "/B.app"]; test.expanded = true
 let smallChoice = NSMenuItem(); smallChoice.tag = 1; test.setBubbleSize(smallChoice)
 assert(test.panels[0].frame.width == 72 && test.iconPanels[0].frame.width == 53)
 assert(test.panels[0].contentView!.bounds.width == 96)
-assert(test.orbitRadius == 61.5)
+assert(test.orbitRadius == 48)
 let smallCore = test.panels[0].contentView as! BubbleView
 smallCore.move?(8,6); let smallFrames = test.panels.map { $0.frame }; smallCore.finishMove?()
 assert(test.panels.map { $0.frame } == smallFrames)
 smallChoice.tag = 0; test.setBubbleSize(smallChoice)
-assert(test.panels[0].frame.width == 96 && test.orbitRadius == 82)
+assert(test.panels[0].frame.width == 96 && test.orbitRadius == 64)
 // Each visible edge stays within one point of the same 10-point gap.
 if let screen = NSScreen.main {
     for small in [false, true] {
@@ -188,6 +188,16 @@ for background in [NSColor.white, NSColor.black, NSColor.orange] {
     assert(abs(actual.redComponent-expected.redComponent) < 0.01)
     assert(abs(actual.greenComponent-expected.greenComponent) < 0.01)
     assert(abs(actual.blueComponent-expected.blueComponent) < 0.01)
+}
+// Compact at six or fewer; progressively expand without overlapping app circles.
+for count in 1...10 {
+    test.apps = Array(repeating:"/A.app",count:count)
+    assert(test.baseOrbitRadius == 64 + CGFloat(max(0,count-6))*6)
+    if count > 1 {
+        let centreDistance = 2*test.baseOrbitRadius*sin(.pi/CGFloat(count))
+        assert(centreDistance > 46*1.06+4)
+    }
+    assert(test.discRadius-test.baseOrbitRadius-23 == 11)
 }
 let image = NSImage(size: NSSize(width: 480, height: 320))
 image.lockFocus()

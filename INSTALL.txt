@@ -16,7 +16,7 @@ Requires macOS 13 Ventura or later. Includes Apple silicon and Intel versions.
 If you only see the centre bubble, that is normal: add your installed apps using the steps above. You can also use the ◎ menu-bar icon to find Add an AI app….
 
 FIRST OPEN
-Version 1.27.3 is signed with Developer ID Application: Stuart Collett and notarised by Apple. macOS may ask you to confirm opening an app downloaded from the internet; choose Open.
+Version 1.28.0 is signed with Developer ID Application: Stuart Collett and notarised by Apple. macOS may ask you to confirm opening an app downloaded from the internet; choose Open.
 If you see an unverified-developer or malware-verification warning, check that you downloaded the latest release from the official repository. Do not disable Gatekeeper or your Mac's security protections.
 Apple's guidance: https://support.apple.com/102445
 
@@ -30,3 +30,6 @@ Add My AI Bubble in System Settings > General > Login Items.
 
 UNINSTALL
 Quit from the bubble's right-click menu, then move My AI Bubble.app from Applications to the Bin. Remove its Login Item if you added one.
+
+LICENCE
+Version 1.28.0 uses MIT with Commons Clause v1.0. Personal and internal business use are allowed; selling products or services deriving substantially from this software is restricted. Read LICENSE.txt for the full terms. Previously MIT-licensed versions retain their permissions.
